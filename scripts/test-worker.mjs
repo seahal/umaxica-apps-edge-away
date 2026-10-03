@@ -2,14 +2,17 @@
 // dispatchFetch avoids an application server, but this Miniflare version still
 // requires internal TCP listeners. Do not replace workerd with a Node-only fake.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
-const runtimeConfig = await readFile(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
-assert.match(runtimeConfig, /"redact_query_string"\s*:\s*true/, 'query redaction configured');
+import { unstable_readConfig as readConfig } from 'wrangler';
+const runtimeConfig = readConfig({
+  config: fileURLToPath(new URL('../wrangler.jsonc', import.meta.url)),
+});
+assert.equal(runtimeConfig.observability.redact_query_string, true, 'query redaction configured');
 const origin = 'https://away-next.example';
 const bundle = await build({
-  entryPoints: ['src/cloudflare.ts'],
+  entryPoints: [runtimeConfig.main],
   bundle: true,
   format: 'esm',
   platform: 'browser',
@@ -21,8 +24,8 @@ const options = {
   cf: false,
   modules: true,
   script: bundle.outputFiles[0].text,
-  compatibilityDate: '2026-05-26',
-  compatibilityFlags: ['nodejs_compat'],
+  compatibilityDate: runtimeConfig.compatibility_date,
+  compatibilityFlags: runtimeConfig.compatibility_flags,
 };
 let runtime;
 try {

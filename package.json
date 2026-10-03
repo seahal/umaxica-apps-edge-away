@@ -11,6 +11,8 @@
     "lint": "oxlint --type-aware --fix .",
     "lint:check": "oxlint --type-aware .",
     "typecheck": "tsc --noEmit",
+    "types:generate": "WRANGLER_SEND_METRICS=false wrangler types",
+    "types:check": "WRANGLER_SEND_METRICS=false wrangler types --check",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "test:e2e": "playwright test",

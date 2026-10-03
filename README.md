@@ -16,6 +16,8 @@ engineering baseline, without jump's application code, keys, or registry.
 - `test/` — Vitest unit tests (`*.test.ts`).
 - `e2e/` — Playwright tests (`*.spec.ts`) and the Node server they run against.
 - `scripts/test-worker.mjs` — runs the bundled Worker in workerd via Miniflare.
+  Reads the entry point, compatibility date, and flags from `wrangler.jsonc`;
+  requests are dispatched locally without fetching the public Worker.
 - `wrangler.jsonc` — Worker configuration.
 - `.github/` — CI workflow, shared pnpm setup action, and Dependabot.
 
@@ -31,6 +33,8 @@ pnpm run cloudflare:dev       # local Worker on port 5210
 pnpm run format:check         # oxfmt (pnpm run format to fix)
 pnpm run lint:check           # oxlint (pnpm run lint to fix)
 pnpm run typecheck
+pnpm run types:generate       # generate worker-configuration.d.ts locally
+pnpm run types:check          # check generated types without rewriting them
 pnpm run test                 # Vitest
 pnpm run test:cov             # Vitest with the 99% coverage threshold
 pnpm run test:worker          # workerd runtime check
