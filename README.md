@@ -32,9 +32,9 @@ pnpm install                  # CI uses --frozen-lockfile
 pnpm run cloudflare:dev       # local Worker on port 5210
 pnpm run format:check         # oxfmt (pnpm run format to fix)
 pnpm run lint:check           # oxlint (pnpm run lint to fix)
-pnpm run typecheck
 pnpm run types:generate       # generate worker-configuration.d.ts locally
 pnpm run types:check          # check generated types without rewriting them
+pnpm run typecheck
 pnpm run test                 # Vitest
 pnpm run test:cov             # Vitest with the 99% coverage threshold
 pnpm run test:worker          # workerd runtime check
@@ -44,6 +44,11 @@ pnpm run cloudflare:check     # wrangler deploy --dry-run
 pnpm exec knip
 pnpm audit --audit-level=high
 ```
+
+CI generates Worker types from `wrangler.jsonc`, checks the generated file,
+then runs TypeScript against those types. Run `types:generate` before local
+type checking. The generated file is not currently committed, so this does
+not detect stale committed types.
 
 ## EDGE Family
 

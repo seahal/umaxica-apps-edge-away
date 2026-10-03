@@ -26,6 +26,8 @@ jobs:
       - uses: ./.github/actions/pnpm-project
       - run: pnpm run format:check
       - run: pnpm run lint:check
+      - run: pnpm run types:generate
+      - run: pnpm run types:check
       - run: pnpm run typecheck
       # oxc-parser's raw transfer reserves a ~6 GiB ArrayBuffer per parse
       # buffer, which the runner cannot allocate ("RangeError: Array buffer

@@ -19,7 +19,7 @@
     "test:worker": "node scripts/test-worker.mjs"
   },
   "dependencies": {
-    "hono": "^4.13.11"
+    "hono": "^4.13.12"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
@@ -28,7 +28,7 @@
     "@types/node": "^26.6.3",
     "@vitest/coverage-v8": "5.0.2",
     "esbuild": "0.28.2",
-    "knip": "^6.38.0",
+    "knip": "^6.39.0",
     "miniflare": "5.20260926.0-alpha",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
@@ -37,7 +37,7 @@
     "typescript": "7.0.2",
     "vite": "8.3.1",
     "vitest": "5.0.2",
-    "wrangler": "^4.143.0"
+    "wrangler": "^4.145.0"
   },
   "engines": {
     "node": "24.20.0",
