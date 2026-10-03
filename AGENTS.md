@@ -2,40 +2,70 @@
 
 ## Project Structure & Module Organization
 
-`umaxica-apps-edge-away` is described in `README.md` as a cushion page for the Umaxica project. The repository currently contains:
+`umaxica-apps-edge-away` is the cushion page for the Umaxica project, built as
+a Hono app on Cloudflare Workers. `README.md` documents the directory layout;
+keep it current when adding directories.
 
-- `README.md`: project name and purpose.
-- `LICENSE`: MIT license terms.
-- `.gitignore`: dependency, build, cache, log, and environment-file exclusions.
+- `src/`: application code. `src/index.ts` builds the app, `src/cloudflare.ts`
+  is the Worker entry point.
+- `test/`: Vitest unit tests, named `*.test.ts`.
+- `e2e/`: Playwright tests, named `*.spec.ts`, plus `e2e/server.ts`.
+- `scripts/`: Node scripts run through `package.json`.
 
-There are no source, test, or asset directories yet. When introducing the application, document its directory layout in `README.md` and keep source code, tests, and static assets clearly separated. The ignore rules do not establish a framework or package manager.
+The tooling was ported from the neighboring jump repository. Jump's application
+code, keys, JWKS, and registry were deliberately not ported; do not copy them in
+without a decision recorded for away.
 
 ## Build, Test, and Development Commands
 
-No dependency manifest, build scripts, development server, or test runner is configured. Do not assume commands such as `npm test` or `npm run build` work.
+- Use pnpm exclusively for dependency management and task execution.
+- Install with `pnpm install --frozen-lockfile` in CI and `pnpm install` when
+  intentionally updating the lockfile. Commit `pnpm-lock.yaml`.
+- Run tools through `package.json` scripts (`pnpm run <script>`) or
+  `pnpm exec <binary>`.
+- Do not use npm, Yarn, or Corepack.
+- Node and pnpm versions are pinned exactly in `package.json`; a mismatched pnpm
+  fails rather than switching.
 
-Current repository checks:
+Before handoff, run:
 
-- `git status --short`: inspect pending changes before and after editing.
-- `git diff --check`: check tracked changes for whitespace errors.
-- `git diff`: review tracked changes; inspect newly created files separately.
+- `pnpm run format:check`
+- `pnpm run lint:check`
+- `pnpm run typecheck`
+- `pnpm run test:cov`
 
-When adding tooling, document installation, local development, build, and test commands in `README.md`, and commit the chosen package manager's lockfile.
+`README.md` lists the remaining commands (`test:worker`, `test:e2e`,
+`cloudflare:check`, `knip`, `audit`), which CI also runs.
 
 ## Coding Style & Naming Conventions
 
-No language-specific style, formatter, or linter is established. Keep Markdown concise, use descriptive headings, and format commands and paths with backticks. Use two spaces for nested Markdown list indentation. Choose descriptive filenames and follow the conventions of the framework once selected; introduce formatting configuration alongside the first application code.
+oxfmt (`.oxfmtrc.json`) and oxlint (`.oxlintrc.json`) define the style: two
+spaces, single quotes, semicolons, 100 columns for code and 80 for Markdown.
+TypeScript is strict (`tsconfig.json`). Use descriptive filenames.
+
+Follow YAGNI: implement only current requirements and avoid speculative
+abstractions.
 
 ## Testing Guidelines
 
-There is no testing framework or coverage threshold. For documentation changes, check command accuracy, paths, and Markdown rendering. When adding executable behavior, include appropriate tests and document the runner, test locations, filename convention, and execution command.
+Vitest enforces 99% coverage of `src/**` (`vitest.config.ts`). Add unit tests
+under `test/` with executable behavior, and Playwright tests under `e2e/` for
+behavior visible over HTTP. Import `describe`, `it`, and `expect` from `vitest`
+explicitly.
 
 ## Commit & Pull Request Guidelines
 
-Git history contains only `Initial commit`, so no recurring commit convention is established. Use concise, imperative subjects, such as `Add cushion page layout`, and keep commits focused.
+Use concise, imperative subjects, such as `Add cushion page layout`, and keep
+commits focused.
 
-Pull requests should explain the purpose, summarize changes, link relevant issues, and state validation performed or unavailable. Include screenshots for visible page changes once a UI exists.
+Pull requests should explain the purpose, summarize changes, link relevant
+issues, and state validation performed or unavailable. Include screenshots for
+visible page changes once a UI exists.
 
 ## Security & Configuration
 
-Never commit credentials or real environment values. `.gitignore` excludes `.env` and `.env.*` while allowing `.env.example`; use that file only for safe placeholders and document required variables when configuration is introduced.
+Never commit credentials or real environment values. `.gitignore` excludes
+`.env`, `.env.*`, and `.dev.vars*` while allowing `.env.example`; use that file
+only for safe placeholders and document required variables when configuration
+is introduced. Rate-limit namespace IDs, keys, key IDs, and JWKS must be newly
+issued for away, never reused from jump.

@@ -141,3 +141,22 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Cloudflare Workers
+.wrangler
+worker-configuration.d.ts
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Playwright output
+test-results/
+playwright-report/
+
+# Local tooling
+.DS_Store
+.vscode/
+.idea
+.claude/
+.codex/
+package-lock.json

@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "umaxica-apps-edge-away",
+  "main": "src/cloudflare.ts",
+  "compatibility_date": "2026-05-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "version_metadata": {
+    "binding": "UMAXICA-APPS-EDGE-AWAY-VERSION"
+  },
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "away.umaxica.net",
+      "zone_name": "umaxica.net",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    // Strip query strings from platform request URLs in logs and traces.
+    // Invocation logs record the request URL, so they depend on this staying
+    // true. Sampling is not a privacy control and must not be used as a
+    // substitute.
+    "redact_query_string": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    // Query values must never be put in pathnames; platform path/metadata
+    // persistence is an accepted risk.
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true
+    },
+    "issues": {
+      "enabled": true
+    }
+  }
+}
