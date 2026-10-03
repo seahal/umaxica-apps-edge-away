@@ -20,6 +20,8 @@ engineering baseline, without jump's application code, keys, or registry.
   requests are dispatched locally without fetching the public Worker.
 - `wrangler.jsonc` — Worker configuration.
 - `.github/` — CI workflow, shared pnpm setup action, and Dependabot.
+- `adr/` — architecture proposals and service responsibility boundaries.
+- `plans/` — implementation plans.
 
 ## Development
 
@@ -62,10 +64,23 @@ This repository is one of several split out of edge:
   future home of the TanStack Start cores once they outgrow edge; created but
   not yet populated.
 - **umaxica-apps-edge-away** (this repository) — planned standalone system for
-  the outbound cushion (interstitial) pages that jump does not implement yet.
+  the outbound cushion (interstitial) pages being retired from jump.
 
 ## Relationship to jump
 
-jump decides whether a destination is allowed; away only displays the cushion
-page. How away verifies jump's approval (for example, a signed token) is not
-decided yet and should be recorded in an ADR before implementation.
+Jump has begun preparing to retire its external destination capability and
+remain an internal-only trust broker. Away independently owns outbound URL
+validation and confirmation. External callers select Away directly; no Jump
+forwarding, approval token or RT exchange is required.
+
+The intended cushion behavior may also handle internal destination URLs under
+Away's own validation and confirmation rules. That does not grant Jump's
+internal trust guarantees: Away must not implement Jump's issuer registry,
+internal origin graph, trust brokering or internal RT issuance/verification.
+URL validation and open-redirect defense remain necessary in Away.
+
+Implementation of Away's independent outbound open-redirect defense and cushion
+page may now begin. The current runtime is still the health-only scaffold;
+implementation permission does not mean the feature is implemented or deployed.
+See [ADR 0001](adr/0001-independent-away-responsibility.md) and the
+[implementation plan](plans/away-external-navigation.md).
