@@ -22,6 +22,7 @@ engineering baseline, without jump's application code, keys, or registry.
 - `.github/` — CI workflow, shared pnpm setup action, and Dependabot.
 - `adr/` — architecture proposals and service responsibility boundaries.
 - `plans/` — implementation plans.
+- `memos/` — dated investigation notes; evidence, not decisions.
 
 ## Development
 
