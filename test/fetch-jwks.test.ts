@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { fetchIssuerJwks, MAX_JWKS_BYTES } from '../src/core/fetch_jwks';
 import { AwayError, type IssuerConfig } from '../src/core/types';
 import { ISSUER } from './support/away-jwt';

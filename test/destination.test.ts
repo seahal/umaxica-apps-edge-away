@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { normalizeDestination } from '../src/core/destination';
 import { AwayError } from '../src/core/types';
 

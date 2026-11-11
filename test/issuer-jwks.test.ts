@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { importIssuerJwks, isValidKid } from '../src/core/issuer_jwks';
 import { AwayError } from '../src/core/types';
 import { createTestKeyPair } from './support/away-jwt';

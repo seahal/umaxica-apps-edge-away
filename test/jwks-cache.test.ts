@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { JwksCache, type FetchJwks } from '../src/core/jwks_cache';
 import { AwayError } from '../src/core/types';
 import { createTestKeyPair, ISSUER } from './support/away-jwt';
@@ -51,6 +51,32 @@ describe('JWKS cache', () => {
     expect(await later).toBe(key);
     expect(await cache.getKey(issuer, 'issuer-key')).toBe(key);
     expect(fetchJwks).toHaveBeenCalledExactlyOnceWith(issuer);
+  });
+
+  it('observes a caller abort that races with joining a shared fetch', async () => {
+    const pair = await createTestKeyPair();
+    let finish!: (value: unknown) => void;
+    const pending = new Promise<unknown>((resolve) => {
+      finish = resolve;
+    });
+    const cache = new JwksCache(async () => pending);
+    const shared = cache.getKey(issuer, 'issuer-key');
+    let reads = 0;
+    const signal = {
+      get aborted() {
+        reads += 1;
+        return reads > 1;
+      },
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as AbortSignal;
+
+    await expect(cache.getKey(issuer, 'issuer-key', false, signal)).rejects.toMatchObject({
+      code: 'jwks_unavailable',
+    });
+    finish({ keys: [pair.publicJwk] });
+    await expect(shared).resolves.toBeDefined();
+    expect(signal.removeEventListener).toHaveBeenCalled();
   });
 
   it('refreshes once for an unknown key and bounds subsequent refreshes', async () => {

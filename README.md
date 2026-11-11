@@ -39,9 +39,9 @@ application code, keys, or internal destination registry.
 Node and pnpm are pinned in `mise.toml`. Run `mise trust` once for this
 repository, then `mise install` to install the pinned tools.
 
-Requires exactly Node `26.13.1` and pnpm `12.0.0` (`engines` in
+Requires exactly Node `26.13.1` and pnpm `12.18.0` (`engines` in
 `package.json`); a different pnpm version fails instead of switching. With mise,
-prefix commands with `mise exec node@26.13.1 pnpm@12.0.0 --`.
+prefix commands with `mise exec node@26.13.1 pnpm@12.18.0 --`.
 
 ```sh
 pnpm install                  # CI uses --frozen-lockfile
@@ -115,3 +115,7 @@ Jump's availability policy. The limiter call is bounded to one second.
 Namespace `521000` is reserved locally for Away, separate from Jump's namespaces.
 Confirm it is unused elsewhere in the target Cloudflare account before rollout.
 No remote namespace or deployment was created by this implementation.
+
+Toolchain: Vite Plus 1.5.0 runs formatting, linting, and unit tests through
+`pnpm run format`, `pnpm run lint:check`, and `pnpm run test:cov`. Configuration
+is consolidated in `vite.config.ts`. Node and pnpm remain managed by mise.

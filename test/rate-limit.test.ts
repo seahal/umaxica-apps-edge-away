@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import worker, { type CloudflareEnv } from '../src/cloudflare';
 import { renderRateLimited } from '../src/core/page';
 const ctx = {} as ExecutionContext;

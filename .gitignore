@@ -159,3 +159,4 @@ playwright-report/
 .claude/
 .codex/
 package-lock.json
+.vitest/

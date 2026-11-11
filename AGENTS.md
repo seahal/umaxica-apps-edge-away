@@ -39,7 +39,7 @@ Before handoff, run:
 
 ## Coding Style & Naming Conventions
 
-oxfmt (`.oxfmtrc.json`) and oxlint (`.oxlintrc.json`) define the style: two
+Vite Plus format and lint settings in `vite.config.ts` define the style: two
 spaces, single quotes, semicolons, 100 columns for code and 80 for Markdown.
 TypeScript is strict (`tsconfig.json`). Use descriptive filenames.
 
@@ -48,9 +48,9 @@ abstractions.
 
 ## Testing Guidelines
 
-Vitest enforces 99% coverage of `src/**` (`vitest.config.ts`). Add unit tests
+Vitest enforces 99% coverage of `src/**` (`vite.config.ts`). Add unit tests
 under `test/` with executable behavior, and Playwright tests under `e2e/` for
-behavior visible over HTTP. Import `describe`, `it`, and `expect` from `vitest`
+behavior visible over HTTP. Import `describe`, `it`, and `expect` from `vite-plus/test`
 explicitly.
 
 ## Commit & Pull Request Guidelines

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { JwksCache } from '../src/core/jwks_cache';
 import { verifyAwayJwt } from '../src/core/verify_jwt';
 import { AWAY, createTestKeyPair, defaultClaims, ISSUER, NOW, signToken } from './support/away-jwt';
