@@ -26,21 +26,21 @@
     "@hono/node-server": "^2.1.6",
     "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "5.0.2",
+    "@vitest/coverage-v8": "5.0.3",
     "esbuild": "0.28.2",
     "knip": "^6.44.2",
-    "miniflare": "5.20260926.0-alpha",
+    "miniflare": "5.20261104.0-beta",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "oxlint-tsgolint": "7.0.2003",
     "tsx": "^4.23.15",
     "typescript": "7.0.2",
-    "vite": "8.3.1",
-    "vitest": "5.0.2",
+    "vite": "8.3.3",
+    "vitest": "5.0.3",
     "wrangler": "^4.158.0"
   },
   "engines": {
-    "node": "24.20.0",
+    "node": "26.13.1",
     "pnpm": "12.0.0"
   },
   "packageManager": "pnpm@12.0.0+sha512.9e2e3dc3911995868dc94b8175c217c27e95408fa03b4a22749778f2b34f773b77cdd3b39ede8171b22fcd53be6a35342e9fac9948a68ef58df6488ce89a7e67"

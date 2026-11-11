@@ -23,7 +23,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'node --import tsx e2e/server.ts',
-    // `/` has no route yet, and Playwright treats a 404 as not ready.
+    // `/health` is the readiness endpoint and does not need JWKS access.
     url: `${baseURL}/health`,
     reuseExistingServer: !isCI,
     timeout: 15_000,

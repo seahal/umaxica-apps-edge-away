@@ -4,7 +4,8 @@ Status: accepted design (owner, 2026-11-10); implementation follows the order in
 `plans/2026-11-10-away-scope-after-cosmos-split.md` (AWS KMS and PS256 in the Cosmos repositories,
 then Jump, then Away). Responsibility boundary: `adr/0001-independent-away-responsibility.md`.
 Incorporates an owner-supplied proposal (drafted with ChatGPT) and the Cosmos decisions in
-`adr/secure-jump-link-redirector.md` there.
+`adr/secure-jump-link-redirector.md` there. The implemented receiver profile and its remaining
+Rails integration boundary are recorded in `plans/2026-11-12-away-implementation-contract.md`.
 
 ## Definition
 

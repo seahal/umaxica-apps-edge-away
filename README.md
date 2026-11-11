@@ -5,30 +5,43 @@ leaves for an external site.
 
 ## Status
 
-Scaffold only. The Worker serves `GET /health` and nothing else; the cushion
-page itself is not implemented yet. The tooling and CI were ported from jump's
-engineering baseline, without jump's application code, keys, or registry.
+The local Away interstitial is implemented. `GET /?at=<JWT>` verifies the
+Away-specific PS256 request contract, validates the destination, and renders a
+confirmation page. A bare `/` redirects to `/about`, which explains the service using the Jump
+reading-page design. The Worker also serves `GET /health`. Rails issuance,
+caller migration, and production deployment remain separate work; see the
+[Away implementation contract](plans/2026-11-12-away-implementation-contract.md).
+The tooling and CI were ported from jump's engineering baseline without Jump's
+application code, keys, or internal destination registry.
 
 ## Layout
 
 - `src/index.ts` — the Hono app (`createApp`).
 - `src/cloudflare.ts` — the Cloudflare Workers entry point.
+- `src/config/issuers.ts` — Away's independent static issuer trust list.
+- `src/core/` — token verification, JWKS handling, URL policy, security
+  headers, and interstitial rendering.
 - `test/` — Vitest unit tests (`*.test.ts`).
 - `e2e/` — Playwright tests (`*.spec.ts`) and the Node server they run against.
 - `scripts/test-worker.mjs` — runs the bundled Worker in workerd via Miniflare.
   Reads the entry point, compatibility date, and flags from `wrangler.jsonc`;
   requests are dispatched locally without fetching the public Worker.
+- `public/` — static assets served through the Worker with security headers.
 - `wrangler.jsonc` — Worker configuration.
 - `.github/` — CI workflow, shared pnpm setup action, and Dependabot.
 - `adr/` — architecture proposals and service responsibility boundaries.
 - `plans/` — implementation plans.
 - `memos/` — dated investigation notes; evidence, not decisions.
+- `evidence/` — concise records of completed verification and security review.
 
 ## Development
 
-Requires exactly Node `24.20.0` and pnpm `12.0.0` (`engines` in
+Node and pnpm are pinned in `mise.toml`. Run `mise trust` once for this
+repository, then `mise install` to install the pinned tools.
+
+Requires exactly Node `26.13.1` and pnpm `12.0.0` (`engines` in
 `package.json`); a different pnpm version fails instead of switching. With mise,
-prefix commands with `mise exec node@24.20.0 pnpm@12.0.0 --`.
+prefix commands with `mise exec node@26.13.1 pnpm@12.0.0 --`.
 
 ```sh
 pnpm install                  # CI uses --frozen-lockfile
@@ -80,8 +93,25 @@ internal trust guarantees: Away must not implement Jump's issuer registry,
 internal origin graph, trust brokering or internal RT issuance/verification.
 URL validation and open-redirect defense remain necessary in Away.
 
-Implementation of Away's independent outbound open-redirect defense and cushion
-page may now begin. The current runtime is still the health-only scaffold;
-implementation permission does not mean the feature is implemented or deployed.
-See [ADR 0001](adr/0001-independent-away-responsibility.md) and the
-[implementation plan](plans/away-external-navigation.md).
+Away's outbound open-redirect defense and interstitial now run locally under
+Away's own token and destination rules. The implementation does not issue or
+verify Jump return tokens and does not forward automatically. Rails must adopt
+the Away request contract before callers can use it; that integration and
+production release are not part of this implementation. See [ADR 0001](adr/0001-independent-away-responsibility.md),
+the [accepted design](plans/2026-11-10-away-interstitial-design.md), and the
+[implementation contract](plans/2026-11-12-away-implementation-contract.md).
+
+## Worker rate limit
+
+`AWAY_RATE_LIMITER` limits token-bearing `GET /` requests to 600 per 60 seconds
+per `CF-Connecting-IP` and Cloudflare location, before token verification.
+Cloudflare's counters are approximate; shared-IP users share the allowance.
+Bare `/`, `/about`, health and assets are outside this token-entry limit.
+Excess requests receive secure localized HTML with 429 and `Retry-After: 60`.
+Missing bindings and limiter timeouts fail closed with 503; a configured
+limiter's call exception is logged without request data and fails open, matching
+Jump's availability policy. The limiter call is bounded to one second.
+
+Namespace `521000` is reserved locally for Away, separate from Jump's namespaces.
+Confirm it is unused elsewhere in the target Cloudflare account before rollout.
+No remote namespace or deployment was created by this implementation.

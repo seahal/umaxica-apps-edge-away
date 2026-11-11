@@ -2,11 +2,25 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "umaxica-apps-edge-away",
   "main": "src/cloudflare.ts",
+  // Run the Worker first so assets receive Away's security and no-store headers.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
   "compatibility_date": "2026-05-26",
   "compatibility_flags": ["nodejs_compat"],
   "version_metadata": {
     "binding": "UMAXICA-APPS-EDGE-AWAY-VERSION"
   },
+  // Away-only namespace; never share Jump counters. Confirm account-wide uniqueness before rollout.
+  "ratelimits": [
+    {
+      "name": "AWAY_RATE_LIMITER",
+      "namespace_id": "521000",
+      "simple": { "limit": 600, "period": 60 }
+    }
+  ],
   "workers_dev": false,
   "routes": [
     {

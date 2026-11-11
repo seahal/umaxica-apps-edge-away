@@ -16,6 +16,7 @@ const bundle = await build({
   bundle: true,
   format: 'esm',
   platform: 'browser',
+  external: ['node:url', 'node:net'],
   write: false,
   jsx: 'automatic',
   jsxImportSource: 'hono/jsx',
