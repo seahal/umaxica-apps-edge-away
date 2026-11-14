@@ -144,7 +144,6 @@ vite.config.ts.timestamp-*
 
 # Cloudflare Workers
 .wrangler
-worker-configuration.d.ts
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
@@ -160,3 +159,4 @@ playwright-report/
 .claude/
 .codex/
 package-lock.json
+.vitest/
