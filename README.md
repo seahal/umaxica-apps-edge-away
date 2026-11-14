@@ -7,9 +7,12 @@ leaves for an external site.
 
 The local Away interstitial is implemented. `GET /?at=<JWT>` verifies the
 Away-specific PS256 request contract, validates the destination, and renders a
-confirmation page. A bare `/` redirects to `/about`, which explains the service using the Jump
-reading-page design. The Worker also serves `GET /health`. Rails issuance,
-caller migration, and production deployment remain separate work; see the
+confirmation page. A bare `/` redirects to `/about`, which explains the service
+using the Jump reading-page design. Confirmation and error pages share Jump's
+compact splash-card layout, information icon, and `UMAXICA (NET)` title branding.
+Temporary failures and rate limits offer a reload action. Destination
+confirmation remains explicit. The Worker also serves `GET /health`. Rails
+issuance, caller migration, and production deployment remain separate work; see the
 [Away implementation contract](plans/2026-11-12-away-implementation-contract.md).
 The tooling and CI were ported from jump's engineering baseline without Jump's
 application code, keys, or internal destination registry.
