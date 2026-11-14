@@ -64,3 +64,13 @@ closed claim set are Away's receiver contract. The Rails issuer implementation
 must emit that contract before production callers are switched. OAuth/OIDC
 redirects remain outside Away. A successful local Worker build does not mean
 DNS, secrets, caller behavior, or production deployment has been changed.
+
+## Shared presentation (2026-11-14)
+
+Away follows Jump's visual presentation: the compact splash card, information
+icon, product reading layout, and `UMAXICA (NET)` page titles. Temporary errors
+and rate limits expose an explicit reload link. This authorizes presentation
+adaptation only; Away keeps its own request verification and destination rules.
+The confirmation page retains the full destination and an explicit continue
+link. Navigation remains script-free; the validated issuer link provides the
+return action instead of Jump's history button.
