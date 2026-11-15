@@ -90,6 +90,9 @@ describe('Away destination validation', () => {
     ['https://example.com/?redirect_uri=https%3A%2F%2Fid.example', 'redirect URI'],
     ['https://example.com/?code%5B%5D=x', 'bracketed authorization code'],
     ['https://example.com/?%2561ccess_token=x', 'double-encoded access token'],
+    ['https://example.com/?%25252563ode=x', 'forbidden name at final decoding layer'],
+    ['https://example.com/?%2525252571=x', 'excessively encoded query name'],
+    ['https://example.com/?%25252525=x', 'malformed final query name'],
     ['https://example.com/?rt=token', 'gateway query'],
     ['https://example.com/?%25=x', 'malformed encoded query name'],
   ])('rejects %s (%s)', (input) => {
@@ -104,5 +107,33 @@ describe('Away destination validation', () => {
       '[2606:1234:1:2:3:4:5:6]',
     );
     expect(() => normalizeDestination('https://[not-ipv6]/', SERVICE)).toThrow(AwayError);
+  });
+
+  it.each([
+    'api_key',
+    'apikey',
+    'authorization',
+    'password',
+    'passwd',
+    'refresh_token',
+    'secret',
+    'session',
+    'session_id',
+    'session_token',
+    'sid',
+    'API_KEY',
+    'api_key[]',
+    '%61pi_key',
+    '%2561pi_key',
+    '%252561pi_key',
+  ])('rejects credential query name %s', (key) => {
+    expect(() =>
+      normalizeDestination(`https://public.example.com/?${key}=secret`, SERVICE),
+    ).toThrow(AwayError);
+  });
+
+  it('preserves ordinary query values and accepts a name at the decoding limit', () => {
+    const input = 'https://public.example.com/?%25252571=a%2520b&item=1';
+    expect(normalizeDestination(input, SERVICE).href).toBe(input);
   });
 });

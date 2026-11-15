@@ -3,7 +3,10 @@ import { AwayError } from './types';
 
 const FORBIDDEN_QUERY_KEYS = new Set([
   'access_token',
+  'api_key',
+  'apikey',
   'at',
+  'authorization',
   'authorization_code',
   'client_assertion',
   'client_secret',
@@ -17,15 +20,23 @@ const FORBIDDEN_QUERY_KEYS = new Set([
   'nonce',
   'nt',
   'openid',
+  'password',
+  'passwd',
   'pt',
   'redirect',
   'redirect_to',
   'redirect_uri',
   'response_mode',
   'response_type',
+  'refresh_token',
   'return_to',
   'rt',
   'scope',
+  'secret',
+  'session',
+  'session_id',
+  'session_token',
+  'sid',
   'state',
   'token',
   'url',
@@ -196,13 +207,13 @@ function isAuthenticationUrl(url: URL) {
   }
   for (const [rawKey] of url.searchParams) {
     let key = rawKey.toLowerCase();
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; ; attempt += 1) {
       const root = key.replace(/\[.*$/, '');
       if (FORBIDDEN_QUERY_KEYS.has(root)) return true;
+      if (!key.includes('%')) break;
+      if (attempt >= 3) return true;
       try {
-        const decoded = decodeURIComponent(key);
-        if (decoded === key) break;
-        key = decoded.toLowerCase();
+        key = decodeURIComponent(key).toLowerCase();
       } catch {
         return true;
       }

@@ -33,7 +33,7 @@ export default {
       const deadline = AbortSignal.timeout(1000);
       try {
         const result = await Promise.race([
-          env.AWAY_RATE_LIMITER.limit({ key: ip }),
+          env.AWAY_RATE_LIMITER.limit({ key: limiterKey(ip) }),
           new Promise<never>((_resolve, reject) =>
             deadline.addEventListener('abort', () => reject(new Error('timeout')), { once: true }),
           ),
@@ -42,14 +42,32 @@ export default {
           return error(renderUnavailable(locale), 503, 'limiter_unavailable');
         if (!result.success) return error(renderRateLimited(locale), 429, 'rate_limited');
       } catch {
-        if (deadline.aborted) return error(renderUnavailable(locale), 503, 'limiter_unavailable');
-        // Match Jump: only a configured limiter's call exception fails open.
-        // eslint-disable-next-line no-console -- coarse limiter outcome only.
-        console.warn(
-          JSON.stringify({ event: 'away_rate_limit_skipped', reason: 'limiter_call_exception' }),
-        );
+        if (!deadline.aborted)
+          // eslint-disable-next-line no-console -- coarse limiter outcome only.
+          console.warn(
+            JSON.stringify({ event: 'away_rate_limit_failed', reason: 'limiter_call_exception' }),
+          );
+        return error(renderUnavailable(locale), 503, 'limiter_unavailable');
       }
     }
     return app.fetch(request, env, executionContext);
   },
 };
+
+/** IPv6 clients usually control a whole /64, so they share one limiter bucket. */
+export function limiterKey(ip: string) {
+  if (isIP(ip) !== 6) return ip;
+  const [left = '', right] = ip.replace(/%.*$/, '').toLowerCase().split('::');
+  const width = (groups: string[]) =>
+    groups.reduce((total, group) => total + (group.includes('.') ? 2 : 1), 0);
+  const head = left ? left.split(':') : [];
+  const tail = right ? right.split(':') : [];
+  const groups =
+    right === undefined
+      ? head
+      : [...head, ...Array(8 - width(head) - width(tail)).fill('0'), ...tail];
+  return `${groups
+    .slice(0, 4)
+    .map((group) => Number.parseInt(group, 16).toString(16))
+    .join(':')}::/64`;
+}

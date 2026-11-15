@@ -75,6 +75,8 @@ describe('Away navigation interstitial', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     expect(response.headers.get('x-frame-options')).toBe('DENY');
+    expect(response.headers.get('cross-origin-opener-policy')).toBe('same-origin');
+    expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin');
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
     expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
@@ -120,6 +122,7 @@ describe('Away navigation interstitial', () => {
       expect(response.status).toBe(400);
       expect(html).not.toContain('example.com');
       expect(response.headers.get('location')).toBeNull();
+      expect(response.headers.get('x-away-error')).toBe('rejected');
     }
   });
 
@@ -135,11 +138,19 @@ describe('Away navigation interstitial', () => {
   });
 
   it('rejects destinations that do not satisfy Away policy', async () => {
-    for (const url of ['http://example.com/', 'https://127.0.0.1/', 'https://jump.umaxica.net/']) {
+    for (const url of [
+      'http://example.com/',
+      'https://127.0.0.1/',
+      'https://jump.umaxica.net/',
+      'https://public.example.com/?%25252563ode=secret',
+      'https://public.example.com/?api_key=secret',
+      'https://public.example.com/?session_token=secret',
+    ]) {
       const token = await signToken(pair, defaultClaims({ url }));
       const response = await app.request(`/?at=${token}`);
       expect(response.status).toBe(400);
       expect(await response.text()).not.toContain(url);
+      expect(response.headers.get('location')).toBeNull();
     }
   });
 

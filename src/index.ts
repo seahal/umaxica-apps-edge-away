@@ -130,8 +130,15 @@ function publicHtml(
 ) {
   const response = context.html(html, status);
   response.headers.set('Content-Type', 'text/html; charset=utf-8');
-  if (errorCode) response.headers.set('X-Away-Error', errorCode);
+  if (errorCode) response.headers.set('X-Away-Error', publicErrorCode(errorCode));
   return response;
+}
+
+// Token rejection details stay in logs; clients only learn the coarse outcome.
+const PUBLIC_ERROR_CODES = new Set(['internal_error', 'jwks_bad_gateway', 'jwks_unavailable']);
+
+function publicErrorCode(code: string) {
+  return PUBLIC_ERROR_CODES.has(code) || code === 'method_not_allowed' ? code : 'rejected';
 }
 
 function readEntryToken(url: URL) {
