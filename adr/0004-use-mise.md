@@ -1,5 +1,7 @@
 # ADR 0004: Use mise for runtime versions
 
+> **Superseded 2026-11-17** by [0005-use-vite-plus-for-node-and-pnpm](0005-use-vite-plus-for-node-and-pnpm.md): Vite+ now installs Node.js and pnpm; this repository has no `mise.toml`.
+
 Status: **Accepted** (2026-11-16).
 
 ## Context

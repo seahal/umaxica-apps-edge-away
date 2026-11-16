@@ -39,12 +39,10 @@ application code, keys, or internal destination registry.
 
 ## Development
 
-Node and pnpm are pinned in `mise.toml`. Run `mise trust` once for this
-repository, then `mise install` to install the pinned tools.
-
-Requires exactly Node `26.13.1` and pnpm `12.18.0` (`engines` in
-`package.json`); a different pnpm version fails instead of switching. With mise,
-prefix commands with `mise exec node@26.13.1 pnpm@12.18.0 --`.
+Vite+ (`vp env`, the global CLI) installs Node and pnpm from `package.json`:
+`engines.node` (`26.13.1`) and `packageManager` (pnpm `12.21.0`), the same fields
+CI reads (adr/0005-use-vite-plus-for-node-and-pnpm.md). A different pnpm version
+fails instead of switching. Shell environment variables come from direnv (`.envrc`).
 
 ```sh
 pnpm install                  # CI uses --frozen-lockfile
@@ -139,4 +137,4 @@ No remote namespace or deployment was created by this implementation.
 
 Toolchain: Vite Plus 1.5.0 runs formatting, linting, and unit tests through
 `pnpm run format`, `pnpm run lint:check`, and `pnpm run test:cov`. Configuration
-is consolidated in `vite.config.ts`. Node and pnpm remain managed by mise.
+is consolidated in `vite.config.ts`. Vite+ also installs Node and pnpm.
