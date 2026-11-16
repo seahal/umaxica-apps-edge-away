@@ -7,9 +7,12 @@ leaves for an external site.
 
 The local Away interstitial is implemented. `GET /?at=<JWT>` verifies the
 Away-specific PS256 request contract, validates the destination, and renders a
-confirmation page. A bare `/` redirects to `/about`, which explains the service using the Jump
-reading-page design. The Worker also serves `GET /health`. Rails issuance,
-caller migration, and production deployment remain separate work; see the
+confirmation page. A bare `/` redirects to `/about`, which explains the service
+using the Jump reading-page design. Confirmation and error pages share Jump's
+compact splash-card layout, information icon, and `UMAXICA (NET)` title branding.
+Temporary failures and rate limits offer a reload action. Destination
+confirmation remains explicit. The Worker also serves `GET /health`. Rails
+issuance, caller migration, and production deployment remain separate work; see the
 [Away implementation contract](plans/2026-11-12-away-implementation-contract.md).
 The tooling and CI were ported from jump's engineering baseline without Jump's
 application code, keys, or internal destination registry.
@@ -101,16 +104,34 @@ production release are not part of this implementation. See [ADR 0001](adr/0001-
 the [accepted design](plans/2026-11-10-away-interstitial-design.md), and the
 [implementation contract](plans/2026-11-12-away-implementation-contract.md).
 
+## Destination confidentiality
+
+Away accepts public, non-sensitive destinations only. The signed `at` JWT is
+readable and its URL can remain in browser history after expiry. Never sign
+destinations containing credentials, personal data, private or signed resource
+links, or password-reset links, including secrets in paths or ordinary query
+parameters. Away rejects common credential query names as defense in depth;
+this cannot identify arbitrary sensitive values. Issuers must enforce this
+policy before signing and verify it before rollout; see the
+[implementation contract](plans/2026-11-12-away-implementation-contract.md).
+
 ## Worker rate limit
 
 `AWAY_RATE_LIMITER` limits token-bearing `GET /` requests to 600 per 60 seconds
 per `CF-Connecting-IP` and Cloudflare location, before token verification.
+IPv6 clients are keyed by their /64 prefix, since one client usually controls
+the whole prefix.
 Cloudflare's counters are approximate; shared-IP users share the allowance.
 Bare `/`, `/about`, health and assets are outside this token-entry limit.
 Excess requests receive secure localized HTML with 429 and `Retry-After: 60`.
-Missing bindings and limiter timeouts fail closed with 503; a configured
-limiter's call exception is logged without request data and fails open, matching
-Jump's availability policy. The limiter call is bounded to one second.
+Missing bindings, limiter timeouts and limiter call exceptions fail closed with
+503; call exceptions are logged without request data. Unlike Jump, Away does not
+fail open, so verification cost stays bounded during limiter outages. The
+limiter call is bounded to one second.
+
+`X-Away-Error` reports only coarse outcomes (`rejected`, `internal_error`,
+`jwks_unavailable`, `jwks_bad_gateway`, limiter codes); detailed token rejection
+reasons stay in the `away_rejected` log event.
 
 Namespace `521000` is reserved locally for Away, separate from Jump's namespaces.
 Confirm it is unused elsewhere in the target Cloudflare account before rollout.

@@ -54,7 +54,7 @@ export function renderInterstitial(
           back: 'Return to the service',
         };
 
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(copy.title)} — UMAXICA</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main class="card">${renderBrandBar(locale)}<h1>${escapeHtml(copy.heading)}</h1><p>${escapeHtml(copy.explanation)}</p><dl><dt>${escapeHtml(copy.host)}</dt><dd class="host">${escapeHtml(destination.displayHostname)}</dd><dt>${escapeHtml(copy.address)}</dt><dd class="url">${escapeHtml(destination.href)}</dd></dl><nav class="actions"><a class="primary" href="${escapeHtml(destination.href)}" rel="noreferrer noopener">${escapeHtml(copy.leave)}</a><a href="${escapeHtml(homeOrigin)}" rel="noreferrer noopener">${escapeHtml(copy.back)}</a></nav></main></body></html>`;
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${escapeHtml(copy.title)} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main class="card">${renderBrandBar(locale)}<h1>${escapeHtml(copy.heading)}</h1><p>${escapeHtml(copy.explanation)}</p><dl><dt>${escapeHtml(copy.host)}</dt><dd class="host">${escapeHtml(destination.displayHostname)}</dd><dt>${escapeHtml(copy.address)}</dt><dd class="url">${escapeHtml(destination.href)}</dd></dl><nav class="actions"><a class="primary" href="${escapeHtml(destination.href)}" rel="noreferrer noopener">${escapeHtml(copy.leave)}</a><a href="${escapeHtml(homeOrigin)}" rel="noreferrer noopener">${escapeHtml(copy.back)}</a></nav></main></body></html>`;
 }
 
 export function renderError(locale: Locale) {
@@ -62,7 +62,7 @@ export function renderError(locale: Locale) {
     locale === 'ja'
       ? ['リクエストを確認できません', 'リンクの有効期限が切れているか、リンクが正しくありません。']
       : ['We could not verify this request', 'The link may be expired or invalid.'];
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(text[0])} — UMAXICA</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${escapeHtml(text[0])}</h1><p>${escapeHtml(text[1])}</p></main></body></html>`;
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${escapeHtml(text[0])} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${escapeHtml(text[0])}</h1><p>${escapeHtml(text[1])}</p></main></body></html>`;
 }
 
 export function renderUnavailable(locale: Locale) {
@@ -73,7 +73,7 @@ export function renderUnavailable(locale: Locale) {
           'We cannot verify this request right now',
           'Please return to the service and try again later.',
         ];
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(text[0])} — UMAXICA</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${escapeHtml(text[0])}</h1><p>${escapeHtml(text[1])}</p></main></body></html>`;
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${escapeHtml(text[0])} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${escapeHtml(text[0])}</h1><p>${escapeHtml(text[1])}</p>${renderRetry(locale)}</main></body></html>`;
 }
 
 function escapeHtml(value: string) {
@@ -100,12 +100,12 @@ export function renderAbout(locale: Locale) {
     locale === 'ja'
       ? 'UMAXICA Away は、別のサイトへ移動する前に、移動先を確認するためのページです。元のサービスのリンクからご利用ください。'
       : 'UMAXICA Away lets you check your destination before leaving for another site. Use a link from the original service to continue.';
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${title} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/about.css"></head><body class="product"><header><a href="/">UMAXICA</a></header><main><h1>${heading}</h1><p>${description}</p></main><footer>© ${new Date().getUTCFullYear()} UMAXICA</footer></body></html>`;
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${title} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/about.css"></head><body class="product"><header><a href="/">UMAXICA</a></header><main><h1>${heading}</h1><p>${description}</p></main><footer>© ${new Date().getUTCFullYear()} UMAXICA</footer></body></html>`;
 }
 
 function renderBrandBar(locale: Locale) {
   const label = locale === 'ja' ? 'このサイトについて' : 'About this service';
-  return `<div class="bar"><span class="brand">UMAXICA</span><a class="about" href="/about" aria-label="${label}" title="${label}">i</a></div>`;
+  return `<div class="bar"><span class="brand">UMAXICA</span><a class="about" href="/about" aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 11v6M12 7h.01" /></svg></a></div>`;
 }
 
 export function renderRateLimited(locale: Locale) {
@@ -114,5 +114,10 @@ export function renderRateLimited(locale: Locale) {
     locale === 'ja'
       ? '少し時間をおいてから、元のサービスでもう一度お試しください。'
       : 'Please wait a moment, then try again from the original service.';
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — UMAXICA</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${title}</h1><p>${body}</p></main></body></html>`;
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${title}</h1><p>${body}</p>${renderRetry(locale)}</main></body></html>`;
+}
+
+function renderRetry(locale: Locale) {
+  const label = locale === 'ja' ? '再読み込み' : 'Reload';
+  return `<p class="actions"><a class="primary reload" href="">${label}</a></p>`;
 }

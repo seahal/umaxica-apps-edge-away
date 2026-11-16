@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import worker, { type CloudflareEnv } from '../src/cloudflare';
+import worker, { limiterKey, type CloudflareEnv } from '../src/cloudflare';
 import { renderRateLimited } from '../src/core/page';
 const ctx = {} as ExecutionContext;
 const request = (ip = '203.0.113.1') =>
@@ -35,7 +35,18 @@ describe('Away Worker rate limiting', () => {
     expect((await worker.fetch(request('not-an-ip'), limiter, ctx)).status).toBe(400);
     expect((await worker.fetch(request(''), limiter, ctx)).status).toBe(400);
   });
-  it('fails open only for call exceptions and bounds a hanging limiter', async () => {
+  it('keys IPv6 clients by /64 prefix', async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    await worker.fetch(request('2001:DB8:1:2:aaaa::1'), { AWAY_RATE_LIMITER: { limit } }, ctx);
+    expect(limit).toHaveBeenCalledWith({ key: '2001:db8:1:2::/64' });
+    expect(limiterKey('2001:db8::1')).toBe('2001:db8:0:0::/64');
+    expect(limiterKey('2001:db8:0:0:1:2:3:4')).toBe('2001:db8:0:0::/64');
+    expect(limiterKey('::ffff:192.0.2.1')).toBe('0:0:0:0::/64');
+    expect(limiterKey('fe80::1%eth0')).toBe('fe80:0:0:0::/64');
+    expect(limiterKey('::')).toBe('0:0:0:0::/64');
+    expect(limiterKey('192.0.2.1')).toBe('192.0.2.1');
+  });
+  it('fails closed for call exceptions and bounds a hanging limiter', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const response = await worker.fetch(
@@ -49,7 +60,8 @@ describe('Away Worker rate limiting', () => {
         },
         ctx,
       );
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(503);
+      expect(response.headers.get('x-away-error')).toBe('limiter_unavailable');
       expect(warn).toHaveBeenCalledTimes(1);
       expect(JSON.stringify(warn.mock.calls)).not.toContain('private detail');
       const timeout = await worker.fetch(

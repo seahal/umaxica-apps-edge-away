@@ -21,6 +21,19 @@
       "simple": { "limit": 600, "period": 60 }
     }
   ],
+  // Preview builds get their own namespace so they never consume production counters.
+  "previews": {
+    "ratelimits": [
+      {
+        "name": "AWAY_RATE_LIMITER",
+        "namespace_id": "521001",
+        "simple": { "limit": 600, "period": 60 }
+      }
+    ],
+    "version_metadata": {
+      "binding": "UMAXICA-APPS-EDGE-AWAY-VERSION"
+    }
+  },
   "workers_dev": false,
   "routes": [
     {
