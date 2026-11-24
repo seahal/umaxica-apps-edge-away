@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import worker from '../src/cloudflare';
-import { AWAY_ORIGIN, createApp } from '../src/index';
+import { AWAY_ORIGIN, createApp, type AppOptions } from '../src/index';
 import {
   AWAY,
   defaultClaims,
@@ -23,7 +23,7 @@ describe('Away navigation interstitial', () => {
 
   beforeEach(() => {
     fetchCalls = 0;
-    app = createApp({
+    app = createTestApp({
       serviceOrigin: AWAY,
       issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
       now: () => NOW,
@@ -54,6 +54,7 @@ describe('Away navigation interstitial', () => {
       );
       expect(about.headers.get('cache-control')).toBe('no-store');
     }
+    expect(await (await app.request('/about')).text()).toContain('UMAXICA Away について');
     expect((await app.request('/assets/about.css')).status).toBe(200);
     expect(fetchCalls).toBe(0);
   });
@@ -122,7 +123,7 @@ describe('Away navigation interstitial', () => {
     expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/i);
     expect(fetchCalls).toBe(0);
 
-    const previewApp = createApp({
+    const previewApp = createTestApp({
       serviceOrigin: 'https://preview.away.example.com',
       issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
       fetchJwks: async () => ({ keys: [pair.publicJwk] }),
@@ -249,7 +250,7 @@ describe('Away navigation interstitial', () => {
   });
 
   it('returns a safe temporary error when the issuer keyset is unavailable', async () => {
-    const unavailable = createApp({
+    const unavailable = createTestApp({
       serviceOrigin: AWAY,
       issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
       now: () => NOW,
@@ -266,7 +267,7 @@ describe('Away navigation interstitial', () => {
   });
 
   it('returns a bad gateway when an issuer publishes an invalid keyset', async () => {
-    const badJwks = createApp({
+    const badJwks = createTestApp({
       serviceOrigin: AWAY,
       issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
       now: () => NOW,
@@ -280,7 +281,7 @@ describe('Away navigation interstitial', () => {
 
   it('uses the wall clock when no test clock is configured', async () => {
     const now = Math.floor(Date.now() / 1000);
-    const live = createApp({
+    const live = createTestApp({
       serviceOrigin: AWAY,
       issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
       fetchJwks: async () => ({ keys: [pair.publicJwk] }),
@@ -297,7 +298,7 @@ describe('Away navigation interstitial', () => {
     consoleInfo.mockImplementationOnce(() => {
       throw new Error('unsafe diagnostic');
     });
-    const unavailable = createApp({
+    const unavailable = createTestApp({
       serviceOrigin: AWAY,
       issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
       now: () => NOW,
@@ -315,7 +316,7 @@ describe('Away navigation interstitial', () => {
   });
 
   it('keeps unexpected runtime errors generic', async () => {
-    const brokenClock = createApp({
+    const brokenClock = createTestApp({
       serviceOrigin: AWAY,
       issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
       now: () => {
@@ -379,7 +380,11 @@ describe('Away navigation interstitial', () => {
       waitUntil() {},
       passThroughOnException() {},
     } as unknown as ExecutionContext;
-    const response = await worker.fetch(new Request(`${AWAY_ORIGIN}/health`), {}, executionContext);
+    const response = await worker.fetch(
+      new Request(`${AWAY_ORIGIN}/health`, { headers: { 'CF-Connecting-IP': '203.0.113.9' } }),
+      { AWAY_RATE_LIMITER: { limit: async () => ({ success: true }) } },
+      executionContext,
+    );
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     const preview = await worker.fetch(
@@ -416,3 +421,18 @@ describe('Away navigation interstitial', () => {
     expect(JSON.stringify(audit)).not.toContain('private asset detail');
   });
 });
+
+const ALLOW_RATE_LIMITER = { limit: async () => ({ success: true }) };
+
+function createTestApp(options: AppOptions = {}) {
+  const app = createApp({ ...options, rateLimiter: options.rateLimiter ?? ALLOW_RATE_LIMITER });
+  const appRequest = app.request.bind(app);
+  app.request = (input, init, env) => {
+    const headers = new Headers(input instanceof Request ? input.headers : undefined);
+    new Headers(init?.headers).forEach((value, name) => headers.set(name, value));
+    if (!headers.has('CF-Connecting-IP')) headers.set('CF-Connecting-IP', '203.0.113.9');
+    const request = input instanceof Request ? new Request(input, { headers }) : input;
+    return appRequest(request, { ...init, headers }, env);
+  };
+  return app;
+}

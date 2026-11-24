@@ -117,17 +117,19 @@ policy before signing and verify it before rollout; see the
 
 ## Worker rate limit
 
-`AWAY_RATE_LIMITER` limits token-bearing `GET /` requests to 600 per 60 seconds
-per `CF-Connecting-IP` and Cloudflare location, before token verification.
-IPv6 clients are keyed by their /64 prefix, since one client usually controls
-the whole prefix.
-Cloudflare's counters are approximate; shared-IP users share the allowance.
-Bare `/`, `/about`, health and assets are outside this token-entry limit.
+`AWAY_RATE_LIMITER` limits every dynamic request that reaches Hono to 600 per
+60 seconds per `CF-Connecting-IP` and Cloudflare location, before route handlers.
+This includes `/`, `/about`, `/health`, and unknown paths. Static assets are
+served by Cloudflare before the Worker (`run_worker_first: false`) and use the
+security headers in `public/_headers`. IPv4 clients use their address as the
+key; IPv6 clients share a bucket by /64 prefix. Cloudflare's counters are
+approximate, so shared-IP users share the allowance.
+
 Excess requests receive secure localized HTML with 429 and `Retry-After: 60`.
-Missing bindings, limiter timeouts and limiter call exceptions fail closed with
-503; call exceptions are logged without request data. Unlike Jump, Away does not
-fail open, so verification cost stays bounded during limiter outages. The
-limiter call is bounded to one second.
+Missing bindings, invalid limiter responses, timeouts, and limiter call
+exceptions fail closed with 503. Failures are logged without request data.
+The limiter call is bounded to one second and its abort listener is always
+removed.
 
 `X-Away-Error` reports only coarse outcomes (`rejected`, `internal_error`,
 `jwks_unavailable`, `jwks_bad_gateway`, limiter codes); detailed token rejection

@@ -27,6 +27,12 @@ const options = {
   script: bundle.outputFiles[0].text,
   compatibilityDate: runtimeConfig.compatibility_date,
   compatibilityFlags: runtimeConfig.compatibility_flags,
+  ratelimits: Object.fromEntries(
+    runtimeConfig.ratelimits.map(({ name, namespace_id, simple }) => [
+      name,
+      { namespace_id, simple },
+    ]),
+  ),
 };
 let runtime;
 try {

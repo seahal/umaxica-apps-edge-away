@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { Hono, type Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { ISSUERS } from './config/issuers';
@@ -5,10 +6,12 @@ import { logAudit } from './core/audit';
 import { normalizeDestination } from './core/destination';
 import { fetchIssuerJwks } from './core/fetch_jwks';
 import { JwksCache, type FetchJwks } from './core/jwks_cache';
+import { limiterKey, type RateLimiter } from './core/rate_limit';
 import {
   renderAbout,
   renderError,
   renderInterstitial,
+  renderRateLimited,
   renderUnavailable,
   requestLocale,
 } from './core/page';
@@ -20,7 +23,6 @@ import { verifyAwayJwt } from './core/verify_jwt';
 const SERVICE = { name: 'away', version: '0.1.0' } as const;
 export const AWAY_ORIGIN = 'https://away.umaxica.net';
 const ENTRY_QUERY = /^\?at=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
-const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PREFETCH_HEADERS = ['Sec-Purpose', 'X-Sec-Purpose', 'Purpose', 'X-Purpose', 'X-Moz'];
 const FETCH_SITES = new Set(['cross-site', 'same-origin', 'same-site', 'none']);
 
@@ -30,6 +32,7 @@ export type AppOptions = {
   fetchJwks?: FetchJwks;
   jwksCache?: JwksCache;
   now?: () => number;
+  rateLimiter?: RateLimiter;
 };
 
 export function createApp(options: AppOptions = {}) {
@@ -42,29 +45,20 @@ export function createApp(options: AppOptions = {}) {
   }
   if (issuers.size === 0 || issuers.size > 32) throw new Error('issuer list size rejected');
   const jwksCache = options.jwksCache ?? new JwksCache(options.fetchJwks ?? fetchIssuerJwks);
-  const internalRequestIds = new WeakMap<Request, string>();
 
   const app = new Hono<{
-    Bindings: { ASSETS?: { fetch(request: Request): Promise<Response> } };
+    Bindings: {
+      ASSETS?: { fetch(request: Request): Promise<Response> };
+      AWAY_RATE_LIMITER?: RateLimiter;
+    };
     Variables: { requestId: string; issuer: string };
   }>({ strict: true });
+
+  // This outer middleware owns request correlation and response hardening.
   app.use('*', async (c, next) => {
-    const requestId = internalRequestIds.get(c.req.raw) ?? crypto.randomUUID();
+    const requestId = crypto.randomUUID();
     c.set('requestId', requestId);
-    if (new URL(c.req.url).origin !== serviceOrigin) {
-      const locale = requestLocale(c.req.header('Accept-Language') ?? null);
-      const cfRay = c.req.header('CF-Ray');
-      c.res = publicHtml(c, renderError(locale), 421, 'invalid_origin');
-      logAudit({
-        event: 'away_rejected',
-        requestId,
-        ...(cfRay ? { cfRay } : {}),
-        status: 421,
-        reason: 'invalid_origin',
-      });
-    } else {
-      await next();
-    }
+    await next();
     let response = withSecurityHeaders(c.res);
     response.headers.set('X-Request-ID', requestId);
     if (c.req.method === 'HEAD') {
@@ -75,6 +69,94 @@ export function createApp(options: AppOptions = {}) {
       });
     }
     c.res = response;
+  });
+
+  // Origin is checked before any request consumes a rate-limit unit.
+  app.use('*', async (c, next) => {
+    if (new URL(c.req.url).origin !== serviceOrigin) {
+      const locale = requestLocale(c.req.header('Accept-Language') ?? null);
+      const cfRay = c.req.header('CF-Ray');
+      logAudit({
+        event: 'away_rejected',
+        requestId: c.get('requestId'),
+        ...(cfRay ? { cfRay } : {}),
+        status: 421,
+        reason: 'invalid_origin',
+      });
+      return publicHtml(c, renderError(locale), 421, 'invalid_origin');
+    }
+    await next();
+  });
+
+  app.use('*', async (c, next) => {
+    const requestId = c.get('requestId');
+    const cfRay = c.req.header('CF-Ray');
+    const auditFields = { requestId, ...(cfRay ? { cfRay } : {}) };
+    const locale = requestLocale(c.req.header('Accept-Language') ?? null);
+    const unavailable = (reason: string) => {
+      logAudit({
+        event: 'away_rate_limit_failed',
+        ...auditFields,
+        status: 503,
+        reason,
+      });
+      return publicHtml(c, renderUnavailable(locale), 503, 'limiter_unavailable');
+    };
+    const limiter = options.rateLimiter ?? c.env?.AWAY_RATE_LIMITER;
+    if (!limiter || typeof limiter.limit !== 'function') return unavailable('limiter_unavailable');
+
+    const ip = c.req.header('CF-Connecting-IP');
+    if (!ip || !isIP(ip)) {
+      logAudit({
+        event: 'away_rejected',
+        ...auditFields,
+        status: 400,
+        reason: 'invalid_client_ip',
+      });
+      return publicHtml(c, renderError(locale), 400, 'invalid_client_ip');
+    }
+
+    const deadline = AbortSignal.timeout(1000);
+    let rejectTimeout!: (reason?: unknown) => void;
+    let timeoutReason = 'limiter_call_exception';
+    const timeout = new Promise<never>((_resolve, reject) => {
+      rejectTimeout = reject;
+    });
+    const onAbort = () => {
+      timeoutReason = 'limiter_timeout';
+      rejectTimeout(new Error('timeout'));
+    };
+    deadline.addEventListener('abort', onAbort, { once: true });
+    if (deadline.aborted) onAbort();
+    let result: unknown;
+    try {
+      result = await Promise.race([limiter.limit({ key: limiterKey(ip) }), timeout]);
+    } catch {
+      return unavailable(timeoutReason);
+    } finally {
+      deadline.removeEventListener('abort', onAbort);
+    }
+
+    if (
+      typeof result !== 'object' ||
+      result === null ||
+      !('success' in result) ||
+      typeof result.success !== 'boolean'
+    )
+      return unavailable('limiter_invalid_response');
+    if (!result.success) {
+      logAudit({
+        event: 'away_rejected',
+        ...auditFields,
+        status: 429,
+        reason: 'rate_limited',
+      });
+      const response = publicHtml(c, renderRateLimited(locale), 429, 'rate_limited');
+      response.headers.set('Retry-After', '60');
+      return response;
+    }
+
+    await next();
   });
 
   app.get('/favicon.ico', (c) => {
@@ -196,8 +278,7 @@ export function createApp(options: AppOptions = {}) {
         env,
       );
     },
-    fetch(request: Request, env?: object, ctx?: ExecutionContext, requestId?: string) {
-      if (requestId && REQUEST_ID.test(requestId)) internalRequestIds.set(request, requestId);
+    fetch(request: Request, env?: object, ctx?: ExecutionContext) {
       return app.fetch(request, env, ctx);
     },
   };
@@ -216,7 +297,14 @@ function publicHtml(
 }
 
 // Token rejection details stay in logs; clients only learn the coarse outcome.
-const PUBLIC_ERROR_CODES = new Set(['internal_error', 'jwks_bad_gateway', 'jwks_unavailable']);
+const PUBLIC_ERROR_CODES = new Set([
+  'internal_error',
+  'jwks_bad_gateway',
+  'jwks_unavailable',
+  'limiter_unavailable',
+  'rate_limited',
+  'invalid_client_ip',
+]);
 
 function publicErrorCode(code: string) {
   return PUBLIC_ERROR_CODES.has(code) || code === 'method_not_allowed' ? code : 'rejected';
