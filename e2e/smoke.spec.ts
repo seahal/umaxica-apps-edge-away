@@ -34,9 +34,16 @@ test.describe('away smoke', () => {
   });
 });
 
-test('bare entry opens the About page in the Jump reading layout', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/about$/);
+test('bare entry is not an About redirect and /about remains available', async ({
+  page,
+  request,
+}) => {
+  const bare = await request.get('/');
+  expect(bare.status()).toBe(404);
+  const head = await request.head('/');
+  expect(head.status()).toBe(405);
+  expect(await head.body()).toHaveLength(0);
+  await page.goto('/about');
   await expect(page.locator('body')).toHaveClass('product');
   await expect(page.getByRole('heading')).toContainText('UMAXICA Away');
   await expect(page.locator('header')).toHaveText('UMAXICA');

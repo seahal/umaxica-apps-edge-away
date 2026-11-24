@@ -12,12 +12,20 @@ const app = createApp({
   issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
   now: () => NOW,
   fetchJwks: async () => ({ keys: [pair.publicJwk] }),
+  rateLimiter: { limit: async () => ({ success: true }) },
 });
 const server = serve({
   fetch: (request, ...args) => {
     if (new URL(request.url).pathname === '/__e2e/token')
       return new Response(token, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
-    return app.fetch(request, ...args);
+    const requestUrl = new URL(request.url);
+    const headers = new Headers(request.headers);
+    headers.set('CF-Connecting-IP', '203.0.113.9');
+    const serviceRequest = new Request(`${awayOrigin}${requestUrl.pathname}${requestUrl.search}`, {
+      method: request.method,
+      headers,
+    });
+    return app.fetch(serviceRequest, ...args);
   },
   hostname: '127.0.0.1',
   port,

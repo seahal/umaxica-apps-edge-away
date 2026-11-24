@@ -10,7 +10,7 @@ const runtimeConfig = readConfig({
   config: fileURLToPath(new URL('../wrangler.jsonc', import.meta.url)),
 });
 assert.equal(runtimeConfig.observability.redact_query_string, true, 'query redaction configured');
-const origin = 'https://away-next.example';
+const origin = 'https://away.umaxica.net';
 const bundle = await build({
   entryPoints: [runtimeConfig.main],
   bundle: true,
@@ -27,6 +27,12 @@ const options = {
   script: bundle.outputFiles[0].text,
   compatibilityDate: runtimeConfig.compatibility_date,
   compatibilityFlags: runtimeConfig.compatibility_flags,
+  ratelimits: Object.fromEntries(
+    runtimeConfig.ratelimits.map(({ name, namespace_id, simple }) => [
+      name,
+      { namespace_id, simple },
+    ]),
+  ),
 };
 let runtime;
 try {

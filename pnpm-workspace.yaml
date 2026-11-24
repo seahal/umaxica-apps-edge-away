@@ -14,9 +14,9 @@ enableGlobalVirtualStore: false
 catalog:
   '@cloudflare/workers-types': 5.20261121.1
   vite: npm:@voidzero-dev/vite-plus-core@8.3.8000
-  vitest: 5.1.1
+  vitest: 5.1.0
   vite-plus: 1.7.0
-  '@vitest/coverage-v8': 5.1.1
+  '@vitest/coverage-v8': 5.1.0
 
 minimumReleaseAge: 4320
 

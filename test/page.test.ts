@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   renderError,
   renderInterstitial,
+  renderRateLimited,
   renderUnavailable,
   requestLocale,
 } from '../src/core/page';
@@ -16,6 +17,12 @@ describe('Away pages', () => {
     expect(requestLocale('en;q=invalid')).toBe('ja');
     expect(requestLocale('fr-FR')).toBe('ja');
     expect(requestLocale(' , ')).toBe('ja');
+  });
+
+  it('bounds Accept-Language length and the number of parsed entries', () => {
+    expect(requestLocale(`en,${'x'.repeat(600)}`)).toBe('en');
+    expect(requestLocale(`${'fr,'.repeat(15)}en`)).toBe('en');
+    expect(requestLocale(`${'fr,'.repeat(16)}en`)).toBe('ja');
   });
 
   it('escapes every dynamic interstitial value in the document', () => {
@@ -42,5 +49,11 @@ describe('Away pages', () => {
     expect(renderError('en')).toContain('We could not verify this request');
     expect(renderUnavailable('ja')).toContain('一時的に確認できません');
     expect(renderUnavailable('en')).toContain('We cannot verify this request right now');
+  });
+
+  it('marks rate-limited pages as unavailable to indexing', () => {
+    expect(renderRateLimited('en')).toContain(
+      '<meta name="robots" content="noindex,nofollow,noarchive">',
+    );
   });
 });

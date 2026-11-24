@@ -21,6 +21,10 @@ by `AGENTS.md`. It does not change any Rails or Jump runtime.
 - `jti` is required for issuer-side uniqueness and audit correlation. Tokens
   are reusable during their short lifetime; Away has no replay store or
   single-use semantics.
+- JWT signatures provide integrity, not confidentiality. The entry URL can
+  remain in browser history after expiration; `no-store` and `no-referrer` do
+  not remove history. All claims, including the destination path and query,
+  must contain only public, non-sensitive data.
 - A valid request returns an HTML page with a direct link. Away does not issue
   another token or send a `Location` header.
 
@@ -49,6 +53,18 @@ by `AGENTS.md`. It does not change any Rails or Jump runtime.
   codes, tokens, state, nonce, and authorization parameters are refused.
   Callers remain responsible for never sending authentication flows through
   Away.
+- Credential query names (including `api_key`, `password`, `refresh_token`,
+  and session identifiers) are also refused, including case variants,
+  bracketed forms, and encoded names. Query names are checked after every
+  decoding step; unresolved encoding beyond three additional layers after
+  URL query parsing is rejected. Query values are not recursively decoded
+  or rewritten.
+- These name checks are defense in depth, not a classifier for arbitrary
+  secrets. Issuers must validate destinations before signing: no credentials,
+  personal data, private resource URLs, signed download links, password-reset
+  links, or other capability URLs, even under ordinary parameter names or in
+  paths. Destinations that require confidential transport must use a separate
+  flow outside Away's URL-carried JWT contract.
 - Away never fetches destinations. It displays the normalized full URL and host
   with its Unicode and ASCII/Punycode forms, when applicable. The primary action
   is a plain `noreferrer noopener` link; the return link goes to the validated
@@ -64,6 +80,11 @@ closed claim set are Away's receiver contract. The Rails issuer implementation
 must emit that contract before production callers are switched. OAuth/OIDC
 redirects remain outside Away. A successful local Worker build does not mean
 DNS, secrets, caller behavior, or production deployment has been changed.
+Before rollout, each issuer must demonstrate rejection before signing of
+sensitive paths and queries, including application-specific names and signed
+links. Away's receiver tests do not establish issuer compliance. Platform
+query redaction must remain enabled, and upstream logs and monitoring must
+also exclude entry query strings.
 
 ## Shared presentation (2026-11-14)
 
