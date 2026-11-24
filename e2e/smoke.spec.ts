@@ -40,9 +40,27 @@ test('bare entry is not an About redirect and /about remains available', async (
 }) => {
   const bare = await request.get('/');
   expect(bare.status()).toBe(404);
+  expect(bare.headers()['content-type']).toContain('text/html');
+  expect(bare.headers()['content-security-policy']).toContain("style-src 'self'");
+  expect(bare.headers()['x-robots-tag']).toBe('noindex, nofollow, noarchive');
+  expect(await bare.text()).toContain('name="robots" content="noindex,nofollow,noarchive"');
   const head = await request.head('/');
-  expect(head.status()).toBe(405);
+  expect(head.status()).toBe(404);
   expect(await head.body()).toHaveLength(0);
+  const unknown = await request.get('/unknown-browser-path');
+  expect(unknown.status()).toBe(404);
+  expect(await unknown.text()).toContain('UMAXICA (NET)');
+  const json = await request.get('/unknown-json-path', {
+    headers: { accept: 'application/json' },
+  });
+  expect(json.status()).toBe(404);
+  expect(await json.body()).toHaveLength(0);
+  await page.goto('/');
+  await expect(page.getByRole('heading')).toContainText('ページが見つかりません');
+  await expect(page.getByRole('link', { name: 'UMAXICA Away について' })).toHaveAttribute(
+    'href',
+    '/about',
+  );
   await page.goto('/about');
   await expect(page.locator('body')).toHaveClass('product');
   await expect(page.getByRole('heading')).toContainText('UMAXICA Away');

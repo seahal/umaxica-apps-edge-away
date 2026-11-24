@@ -160,7 +160,7 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.get('/favicon.ico', (c) => {
-    if (!c.env?.ASSETS) return c.notFound();
+    if (!c.env?.ASSETS) return serveNotFound(c);
     return c.env.ASSETS.fetch(c.req.raw);
   });
 
@@ -177,6 +177,9 @@ export function createApp(options: AppOptions = {}) {
     c.html(renderAbout(requestLocale(c.req.header('Accept-Language') ?? null))),
   );
   app.all('/', async (c) => {
+    const url = new URL(c.req.url);
+    if (!url.search) return serveNotFound(c);
+
     const locale = requestLocale(c.req.header('Accept-Language') ?? null);
     const cfRay = c.req.header('CF-Ray');
     const auditFields = {
@@ -189,9 +192,6 @@ export function createApp(options: AppOptions = {}) {
       response.headers.set('X-Away-Error', 'method_not_allowed');
       return response;
     }
-
-    const url = new URL(c.req.url);
-    if (!url.search) return c.notFound();
 
     if (!isAllowedEntryMetadata(c.req.raw.headers)) {
       logAudit({
@@ -256,6 +256,8 @@ export function createApp(options: AppOptions = {}) {
     }
   });
 
+  app.notFound((c) => serveNotFound(c));
+
   app.onError((_error, c) => {
     const locale = requestLocale(c.req.header('Accept-Language') ?? null);
     const cfRay = c.req.header('CF-Ray');
@@ -294,6 +296,21 @@ function publicHtml(
   response.headers.set('Content-Type', 'text/html; charset=utf-8');
   if (errorCode) response.headers.set('X-Away-Error', publicErrorCode(errorCode));
   return response;
+}
+
+async function serveNotFound(context: Context) {
+  const method = context.req.method;
+  const acceptsJson = context.req
+    .header('Accept')
+    ?.split(',')
+    .some((mediaType) => mediaType.split(';', 1)[0]?.trim().toLowerCase() === 'application/json');
+  const assets = context.env?.ASSETS;
+  if ((method !== 'GET' && method !== 'HEAD') || acceptsJson || !assets)
+    return context.body(null, 404);
+
+  const assetUrl = new URL('/404.html', context.req.url);
+  const asset = await assets.fetch(new Request(assetUrl, { headers: context.req.raw.headers }));
+  return new Response(asset.body, { status: 404, headers: asset.headers });
 }
 
 // Token rejection details stay in logs; clients only learn the coarse outcome.

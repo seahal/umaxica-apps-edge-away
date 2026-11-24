@@ -41,6 +41,7 @@ describe('Away navigation interstitial', () => {
   it('returns 404 for a bare entry and keeps the public about page available', async () => {
     const response = await app.request('/');
     expect(response.status).toBe(404);
+    expect(response.body).toBeNull();
     expect(response.headers.get('location')).toBeNull();
     expect(response.headers.get('x-request-id')).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
@@ -349,7 +350,8 @@ describe('Away navigation interstitial', () => {
       const response = await app.request(path, { method: 'HEAD' });
       expect(response.body).toBeNull();
     }
-    expect((await app.request('/', { method: 'HEAD' })).status).toBe(405);
+    expect((await app.request('/', { method: 'HEAD' })).status).toBe(404);
+    expect((await app.request('/?at=a.b.c', { method: 'HEAD' })).status).toBe(405);
   });
 
   it('serves only the first-party stylesheet and secures not-found responses', async () => {
@@ -358,8 +360,56 @@ describe('Away navigation interstitial', () => {
     expect(css.status).toBe(200);
     expect(css.headers.get('content-type')).toContain('text/css');
     expect(missing.status).toBe(404);
+    expect(missing.body).toBeNull();
     expect(missing.headers.get('cache-control')).toBe('no-store');
     expect(missing.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+  });
+
+  it('serves the static 404 page for browser requests and keeps HEAD bodyless', async () => {
+    const asset = vi.fn(
+      async (_request: Request) =>
+        new Response('<!doctype html><title>Not found</title>', {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        }),
+    );
+    const env = { ASSETS: { fetch: asset } };
+    const browser = await app.request('/', { headers: { Accept: 'text/html' } }, env);
+    expect(browser.status).toBe(404);
+    expect(await browser.text()).toContain('Not found');
+    expect(browser.headers.get('content-type')).toContain('text/html');
+    expect(browser.headers.get('cache-control')).toBe('no-store');
+    expect(browser.headers.get('x-robots-tag')).toBe('noindex, nofollow, noarchive');
+    expect(browser.headers.get('content-security-policy')).toBe(
+      "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    );
+    expect(asset.mock.calls[0]?.[0].url).toBe(`${AWAY}/404.html`);
+
+    const unknown = await app.request('/unknown', {}, env);
+    expect(unknown.status).toBe(404);
+    expect(await unknown.text()).toContain('Not found');
+
+    const head = await app.request('/', { method: 'HEAD' }, env);
+    expect(head.status).toBe(404);
+    expect(head.body).toBeNull();
+    expect(asset).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns empty 404 responses for JSON, non-browser methods, or missing assets', async () => {
+    const asset = vi.fn(async () => new Response('not found page'));
+    const env = { ASSETS: { fetch: asset } };
+    const json = await app.request(
+      '/unknown',
+      { headers: { Accept: 'application/json; charset=utf-8' } },
+      env,
+    );
+    const post = await app.request('/unknown', { method: 'POST' }, env);
+    const noAssets = await app.request('/unknown');
+    const emptyRootPost = await app.request('/', { method: 'POST' }, env);
+    for (const response of [json, post, noAssets, emptyRootPost]) {
+      expect(response.status).toBe(404);
+      expect(response.body).toBeNull();
+    }
+    expect(asset).not.toHaveBeenCalled();
   });
 
   it('serves configured static assets through the security middleware', async () => {

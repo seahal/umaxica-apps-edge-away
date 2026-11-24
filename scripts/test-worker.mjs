@@ -27,6 +27,13 @@ const options = {
   script: bundle.outputFiles[0].text,
   compatibilityDate: runtimeConfig.compatibility_date,
   compatibilityFlags: runtimeConfig.compatibility_flags,
+  assets: {
+    directory: fileURLToPath(new URL('../public', import.meta.url)),
+    binding: runtimeConfig.assets.binding,
+    run_worker_first: runtimeConfig.assets.run_worker_first,
+    routerConfig: { has_user_worker: true },
+    assetConfig: { not_found_handling: runtimeConfig.assets.not_found_handling },
+  },
   ratelimits: Object.fromEntries(
     runtimeConfig.ratelimits.map(({ name, namespace_id, simple }) => [
       name,
@@ -40,11 +47,25 @@ try {
   const health = await runtime.dispatchFetch(`${origin}/health`, { redirect: 'manual' });
   assert.equal(health.status, 200);
   assert.equal((await health.json()).status, 'OK');
-  const missing = await runtime.dispatchFetch(`${origin}/not-found`, { redirect: 'manual' });
-  assert.equal(missing.status, 404);
-  await missing.text();
+  for (const path of ['/', '/not-found']) {
+    const missing = await runtime.dispatchFetch(`${origin}${path}`, { redirect: 'manual' });
+    assert.equal(missing.status, 404);
+    assert.match(missing.headers.get('content-type') ?? '', /text\/html/);
+    assert.equal(missing.headers.get('x-robots-tag'), 'noindex, nofollow, noarchive');
+    assert.match(missing.headers.get('content-security-policy') ?? '', /style-src 'self'/);
+    assert.match(await missing.text(), /name="robots" content="noindex,nofollow,noarchive"/);
+  }
+  const head = await runtime.dispatchFetch(`${origin}/`, { method: 'HEAD', redirect: 'manual' });
+  assert.equal(head.status, 404);
+  assert.equal(await head.text(), '');
+  const json = await runtime.dispatchFetch(`${origin}/not-found`, {
+    headers: { Accept: 'application/json' },
+    redirect: 'manual',
+  });
+  assert.equal(json.status, 404);
+  assert.equal(await json.text(), '');
   // eslint-disable-next-line no-console -- concise runtime verification result.
-  console.log('workerd: health and not-found contracts passed');
+  console.log('workerd: health and browser/JSON not-found contracts passed');
 } catch (error) {
   // eslint-disable-next-line no-console -- error code only, never raw exception text.
   console.error(`workerd contract failed: ${error?.code ?? 'runtime_error'}`);

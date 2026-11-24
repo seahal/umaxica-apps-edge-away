@@ -7,8 +7,9 @@ leaves for an external site.
 
 The local Away interstitial is implemented. `GET /?at=<JWT>` verifies the
 Away-specific PS256 request contract, validates the destination, and renders a
-confirmation page. A bare `/` and unknown paths return 404. `/about` explains
-the service using the Jump reading-page design. Confirmation and error pages
+confirmation page. A bare `/` and unknown browser paths return a static,
+noindex 404 page; JSON requests receive an empty 404. `/about` explains the
+service using the Jump reading-page design. Confirmation and error pages
 share Jump's compact splash-card layout, information icon, and `UMAXICA (NET)`
 title branding. Temporary failures and rate limits offer a reload action.
 Destination confirmation remains explicit. The Worker also serves `GET /health`.
@@ -30,7 +31,8 @@ application code, keys, or internal destination registry.
 - `scripts/test-worker.mjs` — runs the bundled Worker in workerd via Miniflare.
   Reads the entry point, compatibility date, and flags from `wrangler.jsonc`;
   requests are dispatched locally without fetching the public Worker.
-- `public/` — static assets served through the Worker with security headers.
+- `public/` — static assets served through the Worker with security headers,
+  including the browser-facing `404.html` page.
 - `wrangler.jsonc` — Worker configuration.
 - `.github/` — CI workflow, shared pnpm setup action, and Dependabot.
 - `adr/` — architecture proposals and service responsibility boundaries.
