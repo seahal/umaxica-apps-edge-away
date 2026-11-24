@@ -29,7 +29,7 @@ export default defineConfig({
     trailingComma: 'all',
     insertFinalNewline: true,
     sortPackageJson: true,
-    ignorePatterns: ['plans/', 'worker-configuration.d.ts'],
+    ignorePatterns: ['.agents/**', 'plans/', 'worker-configuration.d.ts'],
     overrides: [
       {
         files: ['**/*.json', '**/*.jsonc'],

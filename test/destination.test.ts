@@ -13,9 +13,12 @@ describe('Away destination validation', () => {
     });
   });
 
-  it('allows a public IPv4 literal and an ordinary URL query', () => {
-    expect(normalizeDestination('https://8.8.8.8:8443/path?item=1', SERVICE).href).toBe(
-      'https://8.8.8.8:8443/path?item=1',
+  it('allows a public IPv4 literal, the standard HTTPS port and ordinary URL queries', () => {
+    expect(normalizeDestination('https://8.8.8.8/path?item=1', SERVICE).href).toBe(
+      'https://8.8.8.8/path?item=1',
+    );
+    expect(normalizeDestination('https://public.example.com:443/', SERVICE).href).toBe(
+      'https://public.example.com/',
     );
     expect(normalizeDestination('https://public.example.com/?q=a&q=b', SERVICE).href).toBe(
       'https://public.example.com/?q=a&q=b',
@@ -78,6 +81,7 @@ describe('Away destination validation', () => {
     ['https://jump.umaxica.net/', 'Jump gateway'],
     ['https://away.example.com/path', 'current origin'],
     ['https://away.example.com:8443/path', 'current host on another port'],
+    ['https://public.example.com:8443/path', 'non-standard port'],
     ['https://example.com/oauth/authorize', 'OAuth endpoint'],
     ['https://example.com/%61uthorize', 'encoded OAuth endpoint'],
     ['https://example.com/%2561uthorize', 'double-encoded OAuth endpoint'],

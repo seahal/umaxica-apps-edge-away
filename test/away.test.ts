@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import worker from '../src/cloudflare';
-import { createApp } from '../src/index';
+import { AWAY_ORIGIN, createApp } from '../src/index';
 import {
   AWAY,
   defaultClaims,
@@ -33,14 +33,18 @@ describe('Away navigation interstitial', () => {
       },
     });
     consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => {});
+    consoleInfo.mockClear();
   });
 
   afterAll(() => consoleInfo.mockRestore());
 
-  it('redirects a bare entry to the public about page without key lookup', async () => {
+  it('returns 404 for a bare entry and keeps the public about page available', async () => {
     const response = await app.request('/');
-    expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('/about');
+    expect(response.status).toBe(404);
+    expect(response.headers.get('location')).toBeNull();
+    expect(response.headers.get('x-request-id')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     for (const locale of ['ja', 'en']) {
       const about = await app.request('/about', { headers: { 'Accept-Language': locale } });
@@ -59,7 +63,13 @@ describe('Away navigation interstitial', () => {
       pair,
       defaultClaims({ url: 'https://bücher.example.com/確認?q=1' }),
     );
-    const response = await app.request(`/?at=${token}`, { headers: { 'Accept-Language': 'ja' } });
+    const response = await app.request(`/?at=${token}`, {
+      headers: {
+        'Accept-Language': 'ja',
+        'CF-Ray': 'ray-test',
+        'CF-Connecting-IP': '203.0.113.7',
+      },
+    });
     const html = await response.text();
 
     expect(response.status).toBe(200);
@@ -78,11 +88,95 @@ describe('Away navigation interstitial', () => {
     expect(response.headers.get('cross-origin-opener-policy')).toBe('same-origin');
     expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin');
     expect(response.headers.get('x-content-type-options')).toBe('nosniff');
-    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
-    expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
-    expect(response.headers.get('strict-transport-security')).toBe(
-      'max-age=63072000; includeSubDomains',
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow, noarchive');
+    expect(response.headers.get('content-security-policy')).toBe(
+      "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     );
+    expect(response.headers.get('permissions-policy')).toBe(
+      'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()',
+    );
+    expect(response.headers.get('cross-origin-embedder-policy')).toBe('require-corp');
+    expect(response.headers.get('strict-transport-security')).toBe(
+      'max-age=63072000; includeSubDomains; preload',
+    );
+    const audit = JSON.parse(String(consoleInfo.mock.calls[0]?.[0]));
+    expect(audit).toMatchObject({
+      event: 'away_accepted',
+      request_id: response.headers.get('x-request-id'),
+      status: 200,
+      cf_ray: 'ray-test',
+      iss: ISSUER,
+    });
+    expect(JSON.stringify(audit)).not.toContain(token);
+    expect(JSON.stringify(audit)).not.toContain('bücher.example.com');
+    expect(JSON.stringify(audit)).not.toContain('203.0.113.7');
+  });
+
+  it('rejects a mismatched request origin before token verification', async () => {
+    const token = await signToken(pair);
+    const response = await app.request(`https://preview.away.example.com/?at=${token}`, {
+      headers: { 'CF-Ray': 'preview-ray' },
+    });
+    expect(response.status).toBe(421);
+    expect(response.headers.get('x-away-error')).toBe('rejected');
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(fetchCalls).toBe(0);
+
+    const previewApp = createApp({
+      serviceOrigin: 'https://preview.away.example.com',
+      issuers: [{ iss: ISSUER, jwks_uri: `${ISSUER}/.well-known/jwks.json` }],
+      fetchJwks: async () => ({ keys: [pair.publicJwk] }),
+    });
+    expect((await previewApp.request('/health')).status).toBe(200);
+    expect((await previewApp.request(`${AWAY}/health`)).status).toBe(421);
+  });
+
+  it('rejects speculative prefetch and invalid Fetch Metadata before key lookup', async () => {
+    const purposeHeaders = ['Sec-Purpose', 'X-Sec-Purpose', 'Purpose', 'X-Purpose', 'X-Moz'];
+    const invalidFetchHeaders = [
+      { 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Site': 'same-origin' },
+      { 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'iframe', 'Sec-Fetch-Site': 'same-origin' },
+      { 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Site': 'invalid' },
+      {
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?0',
+      },
+      { 'Sec-Fetch-User': '?1' },
+    ];
+    for (const name of purposeHeaders) {
+      const response = await app.request('/?at=a.b.c', { headers: { [name]: '' } });
+      expect(response.status).toBe(400);
+    }
+    for (const headers of invalidFetchHeaders) {
+      const response = await app.request('/?at=a.b.c', { headers });
+      expect(response.status).toBe(400);
+    }
+    expect(fetchCalls).toBe(0);
+  });
+
+  it('allows valid browser navigation metadata and all supported site values', async () => {
+    const token = await signToken(pair);
+    for (const site of ['cross-site', 'same-origin', 'same-site', 'none']) {
+      const response = await app.request(`/?at=${token}`, {
+        headers: {
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Site': site,
+        },
+      });
+      expect(response.status).toBe(200);
+    }
+    const userInitiated = await app.request(`/?at=${token}`, {
+      headers: {
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-User': '?1',
+      },
+    });
+    expect(userInitiated.status).toBe(200);
   });
 
   it('renders English copy when Japanese is not preferred', async () => {
@@ -243,9 +337,18 @@ describe('Away navigation interstitial', () => {
     const health = await app.request('/health');
     expect(method.status).toBe(405);
     expect(method.headers.get('allow')).toBe('GET');
+    expect(method.body).toBeNull();
     expect(health.status).toBe(200);
     expect(await health.json()).toEqual({ status: 'OK', service: 'away', version: '0.1.0' });
     expect(fetchCalls).toBe(0);
+  });
+
+  it('does not return bodies for HEAD requests', async () => {
+    for (const path of ['/', '/health', '/not-found']) {
+      const response = await app.request(path, { method: 'HEAD' });
+      expect(response.body).toBeNull();
+    }
+    expect((await app.request('/', { method: 'HEAD' })).status).toBe(405);
   });
 
   it('serves only the first-party stylesheet and secures not-found responses', async () => {
@@ -276,8 +379,40 @@ describe('Away navigation interstitial', () => {
       waitUntil() {},
       passThroughOnException() {},
     } as unknown as ExecutionContext;
-    const response = await worker.fetch(new Request(`${AWAY}/health`), {}, executionContext);
+    const response = await worker.fetch(new Request(`${AWAY_ORIGIN}/health`), {}, executionContext);
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
+    const preview = await worker.fetch(
+      new Request('https://away-preview.example.net/?at=a.b.c'),
+      {},
+      executionContext,
+    );
+    expect(preview.status).toBe(421);
+    expect(preview.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+
+  it('logs request correlation for unexpected application errors without raw details', async () => {
+    const response = await app.request(
+      new Request(`${AWAY}/favicon.ico`, { headers: { 'CF-Ray': 'error-ray' } }),
+      {},
+      {
+        ASSETS: {
+          fetch: async () => {
+            throw new Error('private asset detail');
+          },
+        },
+      },
+    );
+    const html = await response.text();
+    expect(response.status).toBe(500);
+    expect(html).not.toContain('private asset detail');
+    const audit = JSON.parse(String(consoleInfo.mock.calls[0]?.[0]));
+    expect(audit).toMatchObject({
+      event: 'away_rejected',
+      request_id: response.headers.get('x-request-id'),
+      status: 500,
+      reason: 'internal_error',
+    });
+    expect(JSON.stringify(audit)).not.toContain('private asset detail');
   });
 });

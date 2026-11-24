@@ -1,14 +1,17 @@
 const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'Cache-Control': 'no-store',
   'Content-Security-Policy':
-    "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'Cross-Origin-Embedder-Policy': 'require-corp',
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Resource-Policy': 'same-origin',
+  'Permissions-Policy':
+    'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()',
   'Referrer-Policy': 'no-referrer',
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
-  'X-Robots-Tag': 'noindex, nofollow',
+  'X-Robots-Tag': 'noindex, nofollow, noarchive',
 };
 
 // Shared visual language with Jump; navigation remains script-free.

@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vite-plus/test';
 import worker, { limiterKey, type CloudflareEnv } from '../src/cloudflare';
 import { renderRateLimited } from '../src/core/page';
 const ctx = {} as ExecutionContext;
-const request = (ip = '203.0.113.1') =>
-  new Request('https://away.umaxica.net/?at=a.b.c', { headers: { 'CF-Connecting-IP': ip } });
+const request = (ip = '203.0.113.1', headers: HeadersInit = {}) =>
+  new Request('https://away.umaxica.net/?at=a.b.c', {
+    headers: { 'CF-Connecting-IP': ip, ...Object.fromEntries(new Headers(headers)) },
+  });
 describe('Away Worker rate limiting', () => {
   it('rejects excess requests before token verification with secure localized HTML', async () => {
     const limit = vi.fn(async () => ({ success: false }));
@@ -11,9 +13,12 @@ describe('Away Worker rate limiting', () => {
     expect(response.status).toBe(429);
     expect(limit).toHaveBeenCalledWith({ key: '203.0.113.1' });
     expect(response.headers.get('retry-after')).toBe('60');
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/i);
     expect(response.headers.get('location')).toBeNull();
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.text()).toContain('アクセスが集中しています');
+    const html = await response.text();
+    expect(html).toContain('アクセスが集中しています');
+    expect(html).toContain('<meta name="robots" content="noindex,nofollow,noarchive">');
     expect(renderRateLimited('en')).toContain('Too many requests');
   });
   it('lets allowed requests reach token validation', async () => {
@@ -50,7 +55,7 @@ describe('Away Worker rate limiting', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const response = await worker.fetch(
-        request(),
+        request('203.0.113.1', { 'CF-Ray': 'ray-test' }),
         {
           AWAY_RATE_LIMITER: {
             limit: async () => {
@@ -64,22 +69,53 @@ describe('Away Worker rate limiting', () => {
       expect(response.headers.get('x-away-error')).toBe('limiter_unavailable');
       expect(warn).toHaveBeenCalledTimes(1);
       expect(JSON.stringify(warn.mock.calls)).not.toContain('private detail');
+      const audit = JSON.parse(String(warn.mock.calls[0]?.[0]));
+      expect(audit).toMatchObject({
+        event: 'away_rate_limit_failed',
+        request_id: response.headers.get('x-request-id'),
+        status: 503,
+        cf_ray: 'ray-test',
+        reason: 'limiter_call_exception',
+      });
+      expect(JSON.stringify(audit)).not.toContain('203.0.113.1');
       const timeout = await worker.fetch(
         request(),
         { AWAY_RATE_LIMITER: { limit: async () => new Promise(() => {}) } },
         ctx,
       );
       expect(timeout.status).toBe(503);
+      expect(JSON.parse(String(warn.mock.calls[1]?.[0])).reason).toBe('limiter_timeout');
     } finally {
       warn.mockRestore();
     }
   });
+  it('handles a timeout signal that was already aborted', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(AbortSignal.abort());
+    try {
+      const response = await worker.fetch(
+        request(),
+        { AWAY_RATE_LIMITER: { limit: async () => new Promise(() => {}) } },
+        ctx,
+      );
+      expect(timeout).toHaveBeenCalledOnce();
+      expect(timeout.mock.results[0]?.value.aborted).toBe(true);
+      expect(warn.mock.calls).toHaveLength(1);
+      expect(response.status).toBe(503);
+      expect(JSON.parse(String(warn.mock.calls[0]?.[0])).reason).toBe('limiter_timeout');
+    } finally {
+      timeout.mockRestore();
+      warn.mockRestore();
+    }
+  });
   it('keeps public pages and non-GET requests outside the token limiter', async () => {
-    for (const path of ['/', '/about', '/health', '/assets/away.css']) {
+    expect((await worker.fetch(new Request('https://away.umaxica.net/'), {}, ctx)).status).toBe(
+      404,
+    );
+    for (const path of ['/about', '/health', '/assets/away.css'])
       expect(
         (await worker.fetch(new Request(`https://away.umaxica.net${path}`), {}, ctx)).status,
       ).toBeLessThan(400);
-    }
     expect(
       (
         await worker.fetch(
@@ -89,5 +125,12 @@ describe('Away Worker rate limiting', () => {
         )
       ).status,
     ).toBe(405);
+    const head = await worker.fetch(
+      new Request('https://away.umaxica.net/', { method: 'HEAD' }),
+      {},
+      ctx,
+    );
+    expect(head.status).toBe(405);
+    expect(head.body).toBeNull();
   });
 });

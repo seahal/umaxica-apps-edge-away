@@ -10,7 +10,7 @@ const runtimeConfig = readConfig({
   config: fileURLToPath(new URL('../wrangler.jsonc', import.meta.url)),
 });
 assert.equal(runtimeConfig.observability.redact_query_string, true, 'query redaction configured');
-const origin = 'https://away-next.example';
+const origin = 'https://away.umaxica.net';
 const bundle = await build({
   entryPoints: [runtimeConfig.main],
   bundle: true,

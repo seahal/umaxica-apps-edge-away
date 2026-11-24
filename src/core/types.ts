@@ -1,6 +1,7 @@
 export type IssuerConfig = {
   iss: string;
   jwks_uri: string;
+  revoked_kids?: readonly string[];
 };
 
 export type AwayClaim = {

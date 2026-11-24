@@ -7,12 +7,13 @@ leaves for an external site.
 
 The local Away interstitial is implemented. `GET /?at=<JWT>` verifies the
 Away-specific PS256 request contract, validates the destination, and renders a
-confirmation page. A bare `/` redirects to `/about`, which explains the service
-using the Jump reading-page design. Confirmation and error pages share Jump's
-compact splash-card layout, information icon, and `UMAXICA (NET)` title branding.
-Temporary failures and rate limits offer a reload action. Destination
-confirmation remains explicit. The Worker also serves `GET /health`. Rails
-issuance, caller migration, and production deployment remain separate work; see the
+confirmation page. A bare `/` and unknown paths return 404. `/about` explains
+the service using the Jump reading-page design. Confirmation and error pages
+share Jump's compact splash-card layout, information icon, and `UMAXICA (NET)`
+title branding. Temporary failures and rate limits offer a reload action.
+Destination confirmation remains explicit. The Worker also serves `GET /health`.
+Rails issuance, caller migration, and production deployment remain separate
+work; see the
 [Away implementation contract](plans/2026-11-12-away-implementation-contract.md).
 The tooling and CI were ported from jump's engineering baseline without Jump's
 application code, keys, or internal destination registry.
@@ -34,13 +35,14 @@ application code, keys, or internal destination registry.
 - `.github/` — CI workflow, shared pnpm setup action, and Dependabot.
 - `adr/` — architecture proposals and service responsibility boundaries.
 - `plans/` — implementation plans.
+- `docs/backlog/` — deferred product and maintenance work.
 - `memos/` — dated investigation notes; evidence, not decisions.
 - `evidence/` — concise records of completed verification and security review.
 
 ## Development
 
 Vite+ (`vp env`, the global CLI) installs Node and pnpm from `package.json`:
-`engines.node` (`26.13.1`) and `packageManager` (pnpm `12.21.0`), the same fields
+`engines.node` (`26.13.1`) and `packageManager` (pnpm `12.22.0`), the same fields
 CI reads (adr/0005-use-vite-plus-for-node-and-pnpm.md). A different pnpm version
 fails instead of switching. Shell environment variables come from direnv (`.envrc`).
 
@@ -59,7 +61,7 @@ pnpm exec playwright install chromium
 pnpm run test:e2e             # Playwright
 pnpm run cloudflare:check     # wrangler deploy --dry-run
 pnpm exec knip
-pnpm audit --audit-level=high
+pnpm audit --audit-level=low
 ```
 
 CI generates Worker types from `wrangler.jsonc`, checks the generated file,
@@ -135,6 +137,6 @@ Namespace `521000` is reserved locally for Away, separate from Jump's namespaces
 Confirm it is unused elsewhere in the target Cloudflare account before rollout.
 No remote namespace or deployment was created by this implementation.
 
-Toolchain: Vite Plus 1.5.0 runs formatting, linting, and unit tests through
+Toolchain: Vite Plus 1.7.0 runs formatting, linting, and unit tests through
 `pnpm run format`, `pnpm run lint:check`, and `pnpm run test:cov`. Configuration
 is consolidated in `vite.config.ts`. Vite+ also installs Node and pnpm.

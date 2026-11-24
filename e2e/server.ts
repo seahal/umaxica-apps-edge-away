@@ -17,7 +17,12 @@ const server = serve({
   fetch: (request, ...args) => {
     if (new URL(request.url).pathname === '/__e2e/token')
       return new Response(token, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
-    return app.fetch(request, ...args);
+    const requestUrl = new URL(request.url);
+    const serviceRequest = new Request(
+      `${awayOrigin}${requestUrl.pathname}${requestUrl.search}`,
+      request,
+    );
+    return app.fetch(serviceRequest, ...args);
   },
   hostname: '127.0.0.1',
   port,

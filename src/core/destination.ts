@@ -96,6 +96,7 @@ export function normalizeDestination(input: string, serviceOrigin: string): Norm
   const serviceHostname = new URL(serviceOrigin).hostname;
   if (
     url.protocol !== 'https:' ||
+    url.port !== '' ||
     !hostname ||
     url.username ||
     url.password ||
