@@ -5,7 +5,9 @@ export type Locale = 'ja' | 'en';
 export function requestLocale(acceptLanguage: string | null): Locale {
   if (!acceptLanguage) return 'ja';
   const languages = acceptLanguage
+    .slice(0, 512)
     .split(',')
+    .slice(0, 16)
     .map((part, index) => {
       const [tag = '', ...parameters] = part.split(';');
       const quality = parameters.find((parameter) => parameter.trim().startsWith('q='));
@@ -100,7 +102,7 @@ export function renderAbout(locale: Locale) {
     locale === 'ja'
       ? 'UMAXICA Away は、別のサイトへ移動する前に、移動先を確認するためのページです。元のサービスのリンクからご利用ください。'
       : 'UMAXICA Away lets you check your destination before leaving for another site. Use a link from the original service to continue.';
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${title} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/about.css"></head><body class="product"><header><a href="/">UMAXICA</a></header><main><h1>${heading}</h1><p>${description}</p></main><footer>© ${new Date().getUTCFullYear()} UMAXICA</footer></body></html>`;
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${title} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/about.css"></head><body class="product"><header><a href="/about">UMAXICA</a></header><main><h1>${heading}</h1><p>${description}</p></main><footer>© ${new Date().getUTCFullYear()} UMAXICA</footer></body></html>`;
 }
 
 function renderBrandBar(locale: Locale) {
@@ -114,7 +116,7 @@ export function renderRateLimited(locale: Locale) {
     locale === 'ja'
       ? '少し時間をおいてから、元のサービスでもう一度お試しください。'
       : 'Please wait a moment, then try again from the original service.';
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${title}</h1><p>${body}</p>${renderRetry(locale)}</main></body></html>`;
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${title} — UMAXICA (NET)</title><link rel="stylesheet" href="/assets/away.css"></head><body class="splash"><main>${renderBrandBar(locale)}<h1>${title}</h1><p>${body}</p>${renderRetry(locale)}</main></body></html>`;
 }
 
 function renderRetry(locale: Locale) {

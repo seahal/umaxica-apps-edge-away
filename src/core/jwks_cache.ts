@@ -24,6 +24,7 @@ export class JwksCache {
   ) {}
 
   async getKey(issuer: IssuerConfig, kid: string, forceRefresh = false, signal?: AbortSignal) {
+    if (issuer.revoked_kids?.includes(kid)) throw new AwayError('invalid_signature', 'kid revoked');
     const cache = this.entry(issuer);
     let keys = await this.getSet(issuer, cache, forceRefresh, signal);
     let key = keys.get(kid);
@@ -83,7 +84,6 @@ export class JwksCache {
           entry.badDocumentUntil = Date.now() + this.forcedRefreshCooldownMs;
         throw failure;
       });
-    entry.inFlight = loading;
     const shared = loading.finally(() => {
       delete entry.inFlight;
     });
@@ -109,6 +109,9 @@ function waitForKeys(promise: Promise<IssuerKeys>, signal?: AbortSignal): Promis
         reject(error);
       },
     );
-    if (signal.aborted) abort();
+    if (signal.aborted) {
+      cleanup();
+      abort();
+    }
   });
 }

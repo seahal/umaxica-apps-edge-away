@@ -62,21 +62,23 @@ describe('JWKS cache', () => {
     const cache = new JwksCache(async () => pending);
     const shared = cache.getKey(issuer, 'issuer-key');
     let reads = 0;
+    const removeEventListener = vi.fn();
     const signal = {
       get aborted() {
         reads += 1;
         return reads > 1;
       },
       addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
+      removeEventListener,
     } as unknown as AbortSignal;
 
     await expect(cache.getKey(issuer, 'issuer-key', false, signal)).rejects.toMatchObject({
       code: 'jwks_unavailable',
     });
+    expect(removeEventListener).toHaveBeenCalledWith('abort', expect.any(Function));
     finish({ keys: [pair.publicJwk] });
     await expect(shared).resolves.toBeDefined();
-    expect(signal.removeEventListener).toHaveBeenCalled();
+    expect(removeEventListener).toHaveBeenCalled();
   });
 
   it('refreshes once for an unknown key and bounds subsequent refreshes', async () => {
@@ -93,6 +95,18 @@ describe('JWKS cache', () => {
       code: 'invalid_signature',
     });
     expect(calls).toBe(2);
+  });
+
+  it('rejects revoked key identifiers before consulting cached keys or fetching', async () => {
+    const pair = await createTestKeyPair();
+    const fetchJwks = vi.fn<FetchJwks>(async () => ({ keys: [pair.publicJwk] }));
+    const cache = new JwksCache(fetchJwks);
+    const key = await cache.getKey(issuer, 'issuer-key');
+    await expect(
+      cache.getKey({ ...issuer, revoked_kids: ['issuer-key'] }, 'issuer-key'),
+    ).rejects.toMatchObject({ code: 'invalid_signature' });
+    expect(key).toBeDefined();
+    expect(fetchJwks).toHaveBeenCalledExactlyOnceWith(issuer);
   });
 
   it('negative-caches outages and malformed JWKS documents', async () => {

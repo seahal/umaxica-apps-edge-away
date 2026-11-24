@@ -7,12 +7,13 @@ leaves for an external site.
 
 The local Away interstitial is implemented. `GET /?at=<JWT>` verifies the
 Away-specific PS256 request contract, validates the destination, and renders a
-confirmation page. A bare `/` redirects to `/about`, which explains the service
-using the Jump reading-page design. Confirmation and error pages share Jump's
-compact splash-card layout, information icon, and `UMAXICA (NET)` title branding.
-Temporary failures and rate limits offer a reload action. Destination
-confirmation remains explicit. The Worker also serves `GET /health`. Rails
-issuance, caller migration, and production deployment remain separate work; see the
+confirmation page. A bare `/` and unknown paths return 404. `/about` explains
+the service using the Jump reading-page design. Confirmation and error pages
+share Jump's compact splash-card layout, information icon, and `UMAXICA (NET)`
+title branding. Temporary failures and rate limits offer a reload action.
+Destination confirmation remains explicit. The Worker also serves `GET /health`.
+Rails issuance, caller migration, and production deployment remain separate
+work; see the
 [Away implementation contract](plans/2026-11-12-away-implementation-contract.md).
 The tooling and CI were ported from jump's engineering baseline without Jump's
 application code, keys, or internal destination registry.
@@ -34,17 +35,16 @@ application code, keys, or internal destination registry.
 - `.github/` — CI workflow, shared pnpm setup action, and Dependabot.
 - `adr/` — architecture proposals and service responsibility boundaries.
 - `plans/` — implementation plans.
+- `docs/backlog/` — deferred product and maintenance work.
 - `memos/` — dated investigation notes; evidence, not decisions.
 - `evidence/` — concise records of completed verification and security review.
 
 ## Development
 
-Node and pnpm are pinned in `mise.toml`. Run `mise trust` once for this
-repository, then `mise install` to install the pinned tools.
-
-Requires exactly Node `26.13.1` and pnpm `12.18.0` (`engines` in
-`package.json`); a different pnpm version fails instead of switching. With mise,
-prefix commands with `mise exec node@26.13.1 pnpm@12.18.0 --`.
+Vite+ (`vp env`, the global CLI) installs Node and pnpm from `package.json`:
+`engines.node` (`26.13.1`) and `packageManager` (pnpm `12.22.0`), the same fields
+CI reads (adr/0005-use-vite-plus-for-node-and-pnpm.md). A different pnpm version
+fails instead of switching. Shell environment variables come from direnv (`.envrc`).
 
 ```sh
 pnpm install                  # CI uses --frozen-lockfile
@@ -61,7 +61,7 @@ pnpm exec playwright install chromium
 pnpm run test:e2e             # Playwright
 pnpm run cloudflare:check     # wrangler deploy --dry-run
 pnpm exec knip
-pnpm audit --audit-level=high
+pnpm audit --audit-level=low
 ```
 
 CI generates Worker types from `wrangler.jsonc`, checks the generated file,
@@ -104,21 +104,41 @@ production release are not part of this implementation. See [ADR 0001](adr/0001-
 the [accepted design](plans/2026-11-10-away-interstitial-design.md), and the
 [implementation contract](plans/2026-11-12-away-implementation-contract.md).
 
+## Destination confidentiality
+
+Away accepts public, non-sensitive destinations only. The signed `at` JWT is
+readable and its URL can remain in browser history after expiry. Never sign
+destinations containing credentials, personal data, private or signed resource
+links, or password-reset links, including secrets in paths or ordinary query
+parameters. Away rejects common credential query names as defense in depth;
+this cannot identify arbitrary sensitive values. Issuers must enforce this
+policy before signing and verify it before rollout; see the
+[implementation contract](plans/2026-11-12-away-implementation-contract.md).
+
 ## Worker rate limit
 
-`AWAY_RATE_LIMITER` limits token-bearing `GET /` requests to 600 per 60 seconds
-per `CF-Connecting-IP` and Cloudflare location, before token verification.
-Cloudflare's counters are approximate; shared-IP users share the allowance.
-Bare `/`, `/about`, health and assets are outside this token-entry limit.
+`AWAY_RATE_LIMITER` limits every dynamic request that reaches Hono to 600 per
+60 seconds per `CF-Connecting-IP` and Cloudflare location, before route handlers.
+This includes `/`, `/about`, `/health`, and unknown paths. Static assets are
+served by Cloudflare before the Worker (`run_worker_first: false`) and use the
+security headers in `public/_headers`. IPv4 clients use their address as the
+key; IPv6 clients share a bucket by /64 prefix. Cloudflare's counters are
+approximate, so shared-IP users share the allowance.
+
 Excess requests receive secure localized HTML with 429 and `Retry-After: 60`.
-Missing bindings and limiter timeouts fail closed with 503; a configured
-limiter's call exception is logged without request data and fails open, matching
-Jump's availability policy. The limiter call is bounded to one second.
+Missing bindings, invalid limiter responses, timeouts, and limiter call
+exceptions fail closed with 503. Failures are logged without request data.
+The limiter call is bounded to one second and its abort listener is always
+removed.
+
+`X-Away-Error` reports only coarse outcomes (`rejected`, `internal_error`,
+`jwks_unavailable`, `jwks_bad_gateway`, limiter codes); detailed token rejection
+reasons stay in the `away_rejected` log event.
 
 Namespace `521000` is reserved locally for Away, separate from Jump's namespaces.
 Confirm it is unused elsewhere in the target Cloudflare account before rollout.
 No remote namespace or deployment was created by this implementation.
 
-Toolchain: Vite Plus 1.5.0 runs formatting, linting, and unit tests through
+Toolchain: Vite Plus 1.7.0 runs formatting, linting, and unit tests through
 `pnpm run format`, `pnpm run lint:check`, and `pnpm run test:cov`. Configuration
-is consolidated in `vite.config.ts`. Node and pnpm remain managed by mise.
+is consolidated in `vite.config.ts`. Vite+ also installs Node and pnpm.
